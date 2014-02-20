@@ -1,5 +1,5 @@
-#ifndef DIRAC_CLIENT_H
-#define DIRAC_CLIENT_H
+#ifndef DRILL_CLIENT_H
+#define DRILL_CLIENT_H
 #include "common.h"
 #include "RpcEncoder.h"
 #include "RpcDecoder.h"
@@ -16,7 +16,7 @@ using namespace boost::system;
 using namespace exec::user;
 using boost::system::error_code; 
 
-typedef void MQueryResult;
+typedef void MQueryResult; // TODO expand later
 typedef void QueryResultHandle;
 
 /*
@@ -93,10 +93,7 @@ public:
     QueryResultHandle GetResult();
     void SubmitQuerySync(QueryType t, const string& plan);
     MQueryResult GetResultSync();
-    void ReadMessage(){
-        cerr << "reading" << endl;
-        m_io_service.post(boost::bind(&DrillClient::do_read, this));
-    }
+    
 private:
     // future<QueryResult> f_results; 
     asio::io_service& m_io_service;
@@ -110,32 +107,7 @@ private:
     uint32_t m_rmsg_len;
     bool m_last_chunk;
     
-    /*
-    int read_complete(const error_code& ec, size_t bytes_transferred)
-    {
-        if(ec) return 0;
-        // read the length header from the buffer, m_rbuf
-        // get the decoder and thus get the bytes
-    }
-    void handle_read(const error_code& ec, size_t bytes_transferred)
-    {
-        if(!ec)
-        {
-            async_read(m_socket, asio::buffer(m_rbuf), on_complete, boost::bind(& DrillClient::handle_read, this, boost::asio::placeholders::error));
-        }else{
-            cerr << "Error: " << ec << endl;
-        }
-        m_decoder.Decode(m_rbuf, msg);
-    }
-
-    void handle_read_length()
-    {
-
-
-    }
-    */
-
-    
+    /*    
     void do_read(){
         // read at most 4 bytes to get the length of the message
         cerr << "do read" << endl;
@@ -185,16 +157,6 @@ private:
         }
 
     }
-/*
-    void test_async_read(){
-        cerr << "async_read_results" << endl;
-        future<InBoundRpcMessage> f_msg = m_socket.async_read_some(asio::buffer(m_rbuf), boost::asio::use_future);
-        InBoundRpcMessage msg = f_msg.get();
-        m_socket.async_read_some(asio::buffer(m_rbuf), boost::bind(on_read, _1, _2));
-        m_io_service.run();
-        m_decoder.Decode(m_rbuf,f_msg.get());
-        cerr << endl;
-    }
 */
     void send_sync(OutBoundRpcMessage& msg)
     {
@@ -243,57 +205,6 @@ bool DrillClient::ValidateHandShake()
     }
     return true;
 }
-
-/*
-void DrillClient::SubmitQuery(QueryType t, const string& plan)
-{
-    cerr << "plan = " << plan << endl;
-    RunQuery query;
-    query.set_results_mode(STREAM_FULL);
-    query.set_type(t);
-    query.set_plan(plan);
-
-    int coord_id = 1;
-    OutBoundRpcMessage out_msg(exec::rpc::REQUEST, RUN_QUERY, coord_id, &query);
-    send(out_msg);
-
-    InBoundRpcMessage in_msg;
-    recv_sync(in_msg);
-    exec::shared::QueryId qid;
-    cerr << "m_pbody = " << in_msg.m_pbody.size() << endl;
-    qid.ParseFromArray(in_msg.m_pbody.data(), in_msg.m_pbody.size());
-
-    cerr << qid.DebugString() << endl;
-    
-}
-*/
-
-/*
-void DrillClient::GetResult()
-{
-
-    std::vector<InBoundRpcMessage> r_msgs(1024);
-
-    int cnt = 0;
-    recv_async(r_msgs[cnt]);
-
-    QueryResult result;
-
-    m_io_service.run();
-    // m_io_service.stop();
-
-      
-    cerr << cnt + 1 << " messages received for results" << endl;
-
-
-    exec::rpc::Ack ack;
-    ack.set_ok(true);
-    int coord_id = r_msgs[cnt-1].m_coord_id + 1;
-    OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, ACK, coord_id, &ack);
-    send_sync(ack_msg);
-
-}
-*/
 
 void DrillClient::SubmitQuerySync(QueryType t, const string& plan)
 {
