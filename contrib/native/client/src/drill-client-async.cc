@@ -21,7 +21,7 @@ void DrillClientAsync::recv_sync(InBoundRpcMessage& msg) {
     int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &length);
     m_decoder.Decode(m_rbuf.data() + bytes_read, length, msg);
 }
-/*
+
 bool DrillClientAsync::ValidateHandShake() {
     UserToBitHandshake u2b;
     u2b.set_channel(exec::shared::USER);
@@ -46,7 +46,7 @@ bool DrillClientAsync::ValidateHandShake() {
     }
     return true;
 }
-*/
+
 
 void DrillClientAsync::SubmitQuery(QueryType t, const string& plan) {
     cerr << "plan = " << plan << endl;
@@ -55,9 +55,13 @@ void DrillClientAsync::SubmitQuery(QueryType t, const string& plan) {
     query.set_type(t);
     query.set_plan(plan);
 
-    int coord_id = 1;
+    int coord_id = 133;
     OutBoundRpcMessage out_msg(exec::rpc::REQUEST, RUN_QUERY, coord_id, &query);
     send_sync(out_msg);
+    
+    for (int i =0 ; i< 6000000; i++) {
+        ;
+    }
 
     do_read();
 }
@@ -90,28 +94,33 @@ void DrillClientAsync::do_read() {
     // read at most 4 bytes to get the length of the message
     cerr << "do read" << endl;
     async_read(m_socket,
-               asio::buffer(m_rbuf.data(), LENGTH_PREFIX_MAX_LENGTH),
+               asio::buffer(m_rbuf.data(), 4),
                boost::bind(&DrillClientAsync::handle_read_length, this,
                            asio::placeholders::error, asio::placeholders::bytes_transferred)
               );
 }
 void DrillClientAsync::handle_read_length(const error_code & err, size_t bytes_transferred) {
-    cerr << "read length" << endl;
-    int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &m_rmsg_len);
+    
+    if (!err){
+        cerr << "> handle read length" << endl;
+        int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &m_rmsg_len);
+        cerr << "bytes read = " << bytes_read << endl;
+        cerr << "m_rmsg_len = " << m_rmsg_len << endl;
 
-    if (!err && m_rmsg_len) {
-        size_t leftover = LENGTH_PREFIX_MAX_LENGTH - bytes_read;
-        if(leftover) {
-            memmove(m_rbuf.data(), m_rbuf.data() + bytes_read, leftover);
+        if (m_rmsg_len) {
+            size_t leftover = LENGTH_PREFIX_MAX_LENGTH - bytes_read;
+            if(leftover) {
+                memmove(m_rbuf.data(), m_rbuf.data() + bytes_read, leftover);
+            }
+            async_read( m_socket,
+                       asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
+                       boost::bind(&DrillClientAsync::handle_read_msg, this,
+                       asio::placeholders::error, asio::placeholders::bytes_transferred)
+                     );
+
         }
-        async_read(m_socket,
-                   asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
-                   boost::bind(&DrillClientAsync::handle_read_msg, this,
-                               asio::placeholders::error, asio::placeholders::bytes_transferred)
-                  );
-
     } else {
-        cerr << "Error: " << err << "\n";
+        cerr << "handle_read_length error: " << err << "\n";
     }
 }
 void DrillClientAsync::handle_read_msg(const error_code & err, size_t bytes_transferred) {
