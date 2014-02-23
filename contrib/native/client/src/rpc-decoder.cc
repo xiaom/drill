@@ -13,8 +13,13 @@ int RpcDecoder::LengthDecode(const uint8_t* buf, uint32_t* p_length) {
     CodedInputStream* cis = new CodedInputStream(buf, 4); // read 4 bytes at most
 
     int pos0 = cis->CurrentPosition(); // for debugging
+    if(CODER_DEBUGGING) 
+        cerr << "pos0 = " << pos0 << endl;
     cis->ReadVarint32(p_length);
+    cerr << "p_length = " << *p_length << endl;
     int pos1 = cis->CurrentPosition();
+    if(CODER_DEBUGGING) 
+        cerr << "pos1 = " << pos1 << endl;
     cerr << "Reading full length " << *p_length << endl;
     assert( (pos1-pos0) == getRawVarintSize(*p_length));
 

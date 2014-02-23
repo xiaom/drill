@@ -3,7 +3,6 @@
 #include "common.h"
 #include "drill-client.h"
 #include "rpc-message.h"
-using exec::rpc::RpcMode;
 using namespace Drill;
 
 int main(int argc, char* argv[]) {
@@ -26,9 +25,6 @@ int main(int argc, char* argv[]) {
             plan_filename = argv[3];
         }
 
-
-
-
         cerr << "Connecting to the Server..." << endl;
 
         UserServerEndPoint user_server(drill_addr,port);
@@ -36,10 +32,6 @@ int main(int argc, char* argv[]) {
         DrillClient client(io_service);
         client.Connect(user_server);
         cerr << "Connected!\n" << endl;
-
-        RpcMode mode = exec::rpc::REQUEST;
-        int rpc_type = exec::user::HANDSHAKE; // initialize as 0
-        int coord_id = 1;
 
         // ---------------------------------------------------------
         // validate handshake
