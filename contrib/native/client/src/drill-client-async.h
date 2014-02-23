@@ -1,23 +1,20 @@
-#ifndef DRILL_CLIENT_H
-#define DRILL_CLIENT_H
+#ifndef DRILL_CLIENT_ASYNC_H
+#define DRILL_CLIENT_ASYNC_H
 #include "common.h"
 #include "rpc-encoder.h"
 #include "rpc-decoder.h"
 #include "rpc-message.h"
 
 
+
 namespace Drill {
 
-class DrillClient {
-
+class DrillClientAsync {
   public:
-    // @brief  Constructor
-    //
-    // @param[in] io_service The io_service object create by asio
-    DrillClient(asio::io_service& io_service):m_io_service(io_service),
+    DrillClientAsync(asio::io_service& io_service):m_io_service(io_service),
         m_socket(io_service), m_rbuf(10240), m_wbuf(10240), m_rmsg_len(0) { };
 
-    ~DrillClient() { };
+    ~DrillClientAsync() { };
 
     // connects the client to a Drillbit UserServer
     void Connect(const UserServerEndPoint& endpoint);
@@ -33,10 +30,10 @@ class DrillClient {
     QueryResultHandle SubmitQuery(exec::user::QueryType t, const string& plan);
     QueryResultHandle GetResult();
 
-    void SubmitQuerySync(exec::user::QueryType t, const string& plan);
-    MQueryResult GetResultSync();
-
   private:
+    void do_read();
+    void handle_read_length(const boost::system::error_code & err, size_t bytes_transferred) ;
+    void handle_read_msg(const boost::system::error_code & err, size_t bytes_transferred) ;
     // future<QueryResult> f_results;
     asio::io_service& m_io_service;
     asio::ip::tcp::socket m_socket;
@@ -48,20 +45,17 @@ class DrillClient {
     DataBuf m_wbuf; // buffer for sending message
     uint32_t m_rmsg_len;
     bool m_last_chunk;
-
     void send_sync(OutBoundRpcMessage& msg);
     void recv_sync(InBoundRpcMessage& msg);
-
-
 };
 
-inline bool DrillClient::Active() {
+inline bool DrillClientAsync::Active() {
     return true;
 }
-inline void DrillClient::Close() {
+inline void DrillClientAsync::Close() {
     m_socket.close();
 }
-inline bool DrillClient::Reconnect() {
+inline bool DrillClientAsync::Reconnect() {
     if (Active()) {
         return true;
     }

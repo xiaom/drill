@@ -3,7 +3,7 @@
 #include "common.h"
 #include <google/protobuf/message_lite.h>
 
-namespace Drill{
+namespace Drill {
 
 class InBoundRpcMessage {
   public:

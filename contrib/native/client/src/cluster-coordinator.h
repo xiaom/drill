@@ -2,7 +2,7 @@
 #define _CLUSTER_COORDINATOR_H
 
 
-namespace Drill{
+namespace Drill {
 class ClusterCoordinator {
   public:
     // TODO
