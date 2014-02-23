@@ -1,21 +1,18 @@
 #ifndef RPC_MESSAGE_H
 #define RPC_MESSAGE_H
-#include <google/protobuf/message_lite.h>
 #include "common.h"
-using google::protobuf::MessageLite;
-using exec::rpc::RpcMode;
+#include <google/protobuf/message_lite.h>
 
-
+namespace Drill{
 
 class InBoundRpcMessage {
-
-public:
+  public:
     RpcMode m_mode;
     int m_rpc_type;
     int m_coord_id;
     DataBuf m_pbody;
-    friend ostream& operator << (ostream & out, InBoundRpcMessage& msg);
     DataBuf m_dbody;
+    friend ostream& operator<< (ostream & out, InBoundRpcMessage& msg);
 
     /*
     InBoundRpcMessage(RpcMode mode,
@@ -30,24 +27,21 @@ public:
 };
 
 class OutBoundRpcMessage {
-public:
-
+  public:
     RpcMode m_mode;
     int m_rpc_type;
     int m_coord_id;
-    const MessageLite* m_pbody;
+    const google::protobuf::MessageLite* m_pbody;
 
-    OutBoundRpcMessage(RpcMode mode, int rpc_type, int coord_id, const MessageLite* pbody):
+    OutBoundRpcMessage(RpcMode mode, int rpc_type, int coord_id, const google::protobuf::MessageLite* pbody):
         m_mode(mode), m_rpc_type(rpc_type), m_coord_id(coord_id), m_pbody(pbody) { }
-
-    friend ostream& operator << (ostream & out, OutBoundRpcMessage& msg);
+    friend ostream& operator<< (ostream & out, OutBoundRpcMessage& msg);
     // GetBodySize
     // GetRawBodySize
     // ToString
 };
-
-ostream& operator<< (ostream & out, InBoundRpcMessage & msg)
-{
+/*
+inline ostream& operator<< (ostream & out, InBoundRpcMessage & msg) {
 
     out << "InboundRpcMessage [pBody= (" << msg.m_pbody.size() << " bytes)"  \
         << ", mode=" << msg.m_mode  << ", rpcType=" << msg.m_rpc_type  << ", coordinationId=" << msg.m_coord_id \
@@ -55,13 +49,14 @@ ostream& operator<< (ostream & out, InBoundRpcMessage & msg)
         << "]" ;
     return out;
 }
-ostream& operator<< (ostream & out, OutBoundRpcMessage & msg)
-{
+inline ostream& operator<< (ostream & out, OutBoundRpcMessage & msg) {
     out << "OutboundRpcMessage [pBody= (" << msg.m_pbody->ByteSize() << " bytes)"\
         << ", mode=" << msg.m_mode  << ", rpcType=" << msg.m_rpc_type  << ", coordinationId=" << msg.m_coord_id \
         // << ", dBodies=" << m_dBodies
         << "]";
     return out;
+}
+*/
 }
 
 #endif
