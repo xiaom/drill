@@ -81,65 +81,14 @@ MQueryResult DrillClient::GetResultSync() {
 }
 
 void DrillClient::send_sync(OutBoundRpcMessage& msg) {
-        m_encoder.Encode(m_wbuf, msg);
-        m_socket.write_some(asio::buffer(m_wbuf));
-    }
+    m_encoder.Encode(m_wbuf, msg);
+    m_socket.write_some(asio::buffer(m_wbuf));
+}
 
-    void DrillClient::recv_sync(InBoundRpcMessage& msg) {
-        m_socket.read_some(asio::buffer(m_rbuf));
-        uint32_t length = 0;
-        int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &length);
-        m_decoder.Decode(m_rbuf.data() + bytes_read, length, msg);
-    }
-/*
-    void do_read(){
-        // read at most 4 bytes to get the length of the message
-        cerr << "do read" << endl;
-        async_read(m_socket,
-                asio::buffer(m_rbuf.data(), LENGTH_PREFIX_MAX_LENGTH),
-                    boost::bind(&DrillClient::handle_read_length, this,
-                        asio::placeholders::error, asio::placeholders::bytes_transferred)
-            );
-    }
-    void handle_read_length(const error_code & err, size_t bytes_transferred)
-    {
-        cerr << "read length" << endl;
-        int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &m_rmsg_len);
-
-        if (!err && m_rmsg_len){
-            size_t leftover = LENGTH_PREFIX_MAX_LENGTH - bytes_read;
-            if(leftover){
-                memmove(m_rbuf.data(), m_rbuf.data() + bytes_read, leftover);
-            }
-            async_read(m_socket,
-                    asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
-                        boost::bind(&DrillClient::handle_read_msg, this,
-                            asio::placeholders::error, asio::placeholders::bytes_transferred)
-                    );
-
-        }
-        else{
-            cerr << "Error: " << err << "\n";
-        }
-    }
-    void handle_read_msg(const error_code & err, size_t bytes_transferred)
-    {
-        cerr << "read msg" << endl;
-        if (!err) {
-            // now message is read into m_rbuf with length m_rmsg_len
-
-            QueryResult result;
-            InBoundRpcMessage msg;
-            m_decoder.Decode(m_rbuf.data(), m_rmsg_len, msg);
-            m_rmsg_len = 0; // reset the length
-            // todo ... handle the chunk
-            result.ParseFromArray(msg.m_pbody.data(), msg.m_pbody.size());
-            cerr << result.DebugString() << endl;
-
-        } else{
-            cerr << "Error: " << err << "\n";
-        }
-
-    }
-*/
+void DrillClient::recv_sync(InBoundRpcMessage& msg) {
+    m_socket.read_some(asio::buffer(m_rbuf));
+    uint32_t length = 0;
+    int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &length);
+    m_decoder.Decode(m_rbuf.data() + bytes_read, length, msg);
+}
 

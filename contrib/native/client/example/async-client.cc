@@ -1,7 +1,7 @@
 //#pragma warning (disable: 4996)
 
 #include "common.h"
-#include "drill-client.h"
+#include "drill-client-async.h"
 #include "rpc-message.h"
 using exec::rpc::RpcMode;
 using namespace Drill;
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
         UserServerEndPoint user_server(drill_addr,port);
         asio::io_service io_service;
-        DrillClient client(io_service);
+        DrillClientAsync client(io_service);
         client.Connect(user_server);
         cerr << "Connected!\n" << endl;
 
@@ -43,17 +43,19 @@ int main(int argc, char* argv[]) {
 
         // ---------------------------------------------------------
         // validate handshake
+        /*
         cerr << "Handshaking..." << endl;
         if (client.ValidateHandShake())
             cerr << "Handshake Successed!\n" << endl;
+        */
         // ---------------------------------------------------------
 
         ifstream f(plan_filename);
         string plan((std::istreambuf_iterator<char>(f)), (std::istreambuf_iterator<char>()));
 
-        client.SubmitQuerySync(exec::user::PHYSICAL, plan);
-        client.GetResultSync();
-
+        client.SubmitQuery(exec::user::PHYSICAL, plan);
+        //client.GetResult();
+        io_service.poll();
         client.Close();
     } catch (std::exception& e) {
         cerr << e.what() << endl;

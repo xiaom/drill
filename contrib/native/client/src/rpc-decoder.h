@@ -3,7 +3,7 @@
 
 #include "rpc-message.h"
 
-namespace Drill{
+namespace Drill {
 class RpcDecoder {
   public:
     RpcDecoder() { }

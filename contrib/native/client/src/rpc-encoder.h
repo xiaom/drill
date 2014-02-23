@@ -1,7 +1,7 @@
 #ifndef RPC_ENCODER_H
 #define RPC_ENCODER_H
 #include "rpc-message.h"
-namespace Drill{
+namespace Drill {
 
 class RpcEncoder {
   public:

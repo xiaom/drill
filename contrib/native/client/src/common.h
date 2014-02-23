@@ -1,4 +1,4 @@
-#ifndef _COMMON_H_ 
+#ifndef _COMMON_H_
 #define _COMMON_H_
 
 #include <string>
@@ -35,9 +35,12 @@ using exec::rpc::RpcMode;
 
 namespace asio = boost::asio;
 
+typedef void MQueryResult; // TODO expand later
+typedef void QueryResultHandle;
+
 #define EXTRA_DEBUGGING 1
 #define LENGTH_PREFIX_MAX_LENGTH 4
-namespace Drill{
+namespace Drill {
 
 struct UserServerEndPoint {
     string m_addr;
