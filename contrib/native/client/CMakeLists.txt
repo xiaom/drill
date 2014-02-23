@@ -12,7 +12,7 @@ find_package(Boost REQUIRED COMPONENTS regex system date_time chrono thread)
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(CMAKE_COMPILER_IS_GNUCXX) 
-    set(CMAKE_EXE_LINKER_FLAGS "-lsqlite3 -lrt -lpthread")                                                   
+    set(CMAKE_EXE_LINKER_FLAGS "-lrt -lpthread")                                                   
 endif()    
 
 find_package(Protobuf REQUIRED)
@@ -24,6 +24,9 @@ message("PROTOBUF_INCLUDE_DIR = " ${PROTOBUF_INCLUDE_DIR})
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
 file(GLOB ProtoCpp src/proto-cpp/*.cc)
+file(GLOB DrillClientCpp src/*.cc)
+
 message("ProtoCpp = " ${ProtoCpp})
-add_executable(sync_client example/sync_client.cpp ${ProtoCpp}) 
-target_link_libraries(sync_client ${Boost_LIBRARIES} protobuf)
+message("DrillClientCpp = " ${DrillClientCpp})
+add_executable(sync-client example/sync-client.cc ${DrillClientCpp} ${ProtoCpp}) 
+target_link_libraries(sync-client ${Boost_LIBRARIES} protobuf)
