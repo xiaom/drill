@@ -58,7 +58,7 @@ void DrillClientAsync::SubmitQuery(QueryType t, const string& plan) {
     int coord_id = 133;
     OutBoundRpcMessage out_msg(exec::rpc::REQUEST, RUN_QUERY, coord_id, &query);
     send_sync(out_msg);
-    
+
     for (int i =0 ; i< 6000000; i++) {
         ;
     }
@@ -100,8 +100,8 @@ void DrillClientAsync::do_read() {
               );
 }
 void DrillClientAsync::handle_read_length(const error_code & err, size_t bytes_transferred) {
-    
-    if (!err){
+
+    if (!err) {
         cerr << "> handle read length" << endl;
         int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &m_rmsg_len);
         cerr << "bytes read = " << bytes_read << endl;
@@ -113,10 +113,10 @@ void DrillClientAsync::handle_read_length(const error_code & err, size_t bytes_t
                 memmove(m_rbuf.data(), m_rbuf.data() + bytes_read, leftover);
             }
             async_read( m_socket,
-                       asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
-                       boost::bind(&DrillClientAsync::handle_read_msg, this,
-                       asio::placeholders::error, asio::placeholders::bytes_transferred)
-                     );
+                        asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
+                        boost::bind(&DrillClientAsync::handle_read_msg, this,
+                                    asio::placeholders::error, asio::placeholders::bytes_transferred)
+                      );
 
         }
     } else {

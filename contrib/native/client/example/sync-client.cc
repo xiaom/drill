@@ -1,7 +1,7 @@
 //#pragma warning (disable: 4996)
 
 #include "common.h"
-#include "drill-client.h"
+#include "drill-client-sync.h"
 #include "rpc-message.h"
 using namespace Drill;
 
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
         UserServerEndPoint user_server(drill_addr,port);
         asio::io_service io_service;
-        DrillClient client(io_service);
+        DrillClientSync client(io_service);
         client.Connect(user_server);
         cerr << "Connected!\n" << endl;
 

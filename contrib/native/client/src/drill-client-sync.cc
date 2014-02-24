@@ -1,17 +1,17 @@
 #include "common.h"
-#include "drill-client.h"
+#include "drill-client-sync.h"
 using boost::system::error_code;
-using Drill::DrillClient;
+using Drill::DrillClientSync;
 using Drill::UserServerEndPoint;
 using namespace exec::user;
 
-void DrillClient::Connect(const UserServerEndPoint& userver) {
+void DrillClientSync::Connect(const UserServerEndPoint& userver) {
     // connect the endpoint
     asio::ip::tcp::endpoint endpoint(asio::ip::address::from_string(userver.m_addr), userver.m_port);
     m_socket.connect(endpoint);
 }
 
-bool DrillClient::ValidateHandShake() {
+bool DrillClientSync::ValidateHandShake() {
     UserToBitHandshake u2b;
     u2b.set_channel(exec::shared::USER);
     u2b.set_rpc_version(1);
@@ -36,7 +36,7 @@ bool DrillClient::ValidateHandShake() {
     return true;
 }
 
-void DrillClient::SubmitQuerySync(QueryType t, const string& plan) {
+void DrillClientSync::SubmitQuerySync(QueryType t, const string& plan) {
     cerr << "plan = " << plan << endl;
     RunQuery query;
     query.set_results_mode(STREAM_FULL);
@@ -57,7 +57,7 @@ void DrillClient::SubmitQuerySync(QueryType t, const string& plan) {
 
 }
 
-MQueryResult DrillClient::GetResultSync() {
+MQueryResult DrillClientSync::GetResultSync() {
 
     std::vector<InBoundRpcMessage> r_msgs(1024);
     QueryResult result;
@@ -80,12 +80,12 @@ MQueryResult DrillClient::GetResultSync() {
     send_sync(ack_msg);
 }
 
-void DrillClient::send_sync(OutBoundRpcMessage& msg) {
+void DrillClientSync::send_sync(OutBoundRpcMessage& msg) {
     m_encoder.Encode(m_wbuf, msg);
     m_socket.write_some(asio::buffer(m_wbuf));
 }
 
-void DrillClient::recv_sync(InBoundRpcMessage& msg) {
+void DrillClientSync::recv_sync(InBoundRpcMessage& msg) {
     m_socket.read_some(asio::buffer(m_rbuf));
     uint32_t length = 0;
     int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &length);
