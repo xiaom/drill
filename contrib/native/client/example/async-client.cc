@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
 
         //string s;
         //std::cin >> s ;
-        
+
         if (argc !=1 && argc != 4) {
             std::cout << "Usage: async_client <server> <port> <plan>\n";
             std::cout << "Example:\n";
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
 
         // ---------------------------------------------------------
         // validate handshake
-    
+
         cerr << "Handshaking..." << endl;
         if (client.ValidateHandShake())
             cerr << "Handshake Successed!\n" << endl;

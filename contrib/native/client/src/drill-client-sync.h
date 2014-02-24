@@ -1,5 +1,5 @@
-#ifndef DRILL_CLIENT_H
-#define DRILL_CLIENT_H
+#ifndef DRILL_CLIENT_SYNC_H
+#define DRILL_CLIENT_SYNC_H
 #include "common.h"
 #include "rpc-encoder.h"
 #include "rpc-decoder.h"
@@ -8,16 +8,16 @@
 
 namespace Drill {
 
-class DrillClient {
+class DrillClientSync {
 
   public:
     // @brief  Constructor
     //
     // @param[in] io_service The io_service object create by asio
-    DrillClient(asio::io_service& io_service):m_io_service(io_service),
+    DrillClientSync(asio::io_service& io_service):m_io_service(io_service),
         m_socket(io_service), m_rbuf(10240), m_wbuf(10240), m_rmsg_len(0) { };
 
-    ~DrillClient() { };
+    ~DrillClientSync() { };
 
     // connects the client to a Drillbit UserServer
     void Connect(const UserServerEndPoint& endpoint);
@@ -55,13 +55,13 @@ class DrillClient {
 
 };
 
-inline bool DrillClient::Active() {
+inline bool DrillClientSync::Active() {
     return true;
 }
-inline void DrillClient::Close() {
+inline void DrillClientSync::Close() {
     m_socket.close();
 }
-inline bool DrillClient::Reconnect() {
+inline bool DrillClientSync::Reconnect() {
     if (Active()) {
         return true;
     }
