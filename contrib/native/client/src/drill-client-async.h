@@ -22,7 +22,7 @@ class DrillClientAsync {
     // test whether the client is active
     bool Active();
 
-    // reconncet if sumbission failed, retry is setting by m_reconnect_times
+    // reconnet if sumbission failed, retry is setting by m_reconnect_times
     bool Reconnect();
     void Close() ;
     bool ValidateHandShake(); // throw expection if not valid

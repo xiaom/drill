@@ -1,9 +1,8 @@
 #include "common.h"
 #include "drill-client-async.h"
 using boost::system::error_code;
-using Drill::DrillClientAsync;
-using Drill::UserServerEndPoint;
 using namespace exec::user;
+using namespace Drill;
 
 void DrillClientAsync::Connect(const UserServerEndPoint& userver) {
     // connect the endpoint
