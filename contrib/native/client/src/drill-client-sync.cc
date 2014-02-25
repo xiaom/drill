@@ -1,9 +1,8 @@
 #include "common.h"
 #include "drill-client-sync.h"
 using boost::system::error_code;
-using Drill::DrillClientSync;
-using Drill::UserServerEndPoint;
 using namespace exec::user;
+using namespace Drill;
 
 void DrillClientSync::Connect(const UserServerEndPoint& userver) {
     // connect the endpoint
