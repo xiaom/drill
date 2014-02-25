@@ -69,7 +69,10 @@ class DrillClient {
     /// @param[in]  query    The query to execute. 
     /// @param[out] context  The output context generated from preparing the query.
     /// @param[out] buffer   The output buffer
-    virtual void PrepareStatement(const string& query, ExecutionContext& context, RecordBatchBuffer& buffer) = 0;
+    virtual void PrepareStatement(
+    	const string& query, 
+    	ExecutionContext& context, 
+    	RecordBatchBuffer& buffer) = 0;
 
     /// @brief Bind parameters values for a previously prepared SQL query 
     ///
@@ -77,7 +80,10 @@ class DrillClient {
     /// @param[in] parameter  	The list of (key,value) pairs of parameters. 
 	///							For example, could be a format like "key1:val1, key2:val2 "
 	/// @param[out] context 	The output context generated from binding statement
-    virtual void BindStatement(const ExecutionContext& in_context, const string& parameters, ExecutionContext& out_context) = 0;
+    virtual void BindStatement(
+    	const ExecutionContext& in_context, 
+    	const string& parameters, 
+    	ExecutionContext& out_context) = 0;
 
     /// @brief Executes a SQL query in Apache Drill. 
 	/// 
@@ -86,7 +92,10 @@ class DrillClient {
     /// @param[in]  in_context  The context of a previously prepared/bind query.
 	/// @param[out] out_context The output context generated from executing the query
 	/// @param[out] buffer   	The output buffer.
-    virtual void ExecuteStatement(const ExecutionContext& in_context, ExecutionContext& out_context, RecordBatchBuffer& buffer) = 0;
+    virtual void ExecuteStatement(
+    	const ExecutionContext& in_context, 
+    	ExecutionContext& out_context, 
+    	RecordBatchBuffer& buffer) = 0;
 
     /// @brief Cancel the query
 	///
