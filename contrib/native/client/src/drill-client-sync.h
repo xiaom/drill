@@ -37,7 +37,6 @@ class DrillClientSync {
     MQueryResult GetResultSync();
 
   private:
-    // future<QueryResult> f_results;
     asio::io_service& m_io_service;
     asio::ip::tcp::socket m_socket;
     RpcEncoder m_encoder;

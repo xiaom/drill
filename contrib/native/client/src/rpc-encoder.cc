@@ -26,7 +26,9 @@ bool RpcEncoder::Encode(DataBuf& buf, OutBoundRpcMessage& msg) {
     // - let a context manager to allocate a buffer `ByteBuf buf = ctx.alloc().buffer();`
     // - builder pattern
     //
+#ifdef CODER_DEBUG
     cerr << "\nEncoding outbound message " << msg << endl;
+#endif
 
     RpcHeader header;
     header.set_mode(msg.m_mode);
@@ -50,19 +52,26 @@ bool RpcEncoder::Encode(DataBuf& buf, OutBoundRpcMessage& msg) {
     CodedOutputStream* cos = new CodedOutputStream(os);
 
 
+#ifdef CODER_DEBUG
     cerr << "Writing full length " << full_length << endl;
+#endif
 
     // write full length first (this is length delimited stream).
     cos->WriteVarint32(full_length);
 
+#ifdef CODER_DEBUG
     cerr << "Writing header length " << header_length << endl;
+#endif
+
     cos->WriteVarint32(HEADER_TAG);
     cos->WriteVarint32(header_length);
 
     header.SerializeToCodedStream(cos);
 
     // write protobuf body length and body
+#ifdef CODER_DEBUG
     cerr << "Writing protobuf body length " << proto_body_length << endl;
+#endif
 
     cos->WriteVarint32(PROTOBUF_BODY_TAG);
     cos->WriteVarint32(proto_body_length);

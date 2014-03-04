@@ -1,0 +1,18 @@
+{
+    "TABLE_CATALOG": "DRILL",
+    "TABLE_SCHEMA": "sample",
+    "TABLE_NAME": "donuts",
+    "TABLE_TYPE": "TABLE"
+}
+{
+    "TABLE_CATALOG": "DRILL",
+    "TABLE_SCHEMA": "sample",
+    "TABLE_NAME": "nation",
+    "TABLE_TYPE": "TABLE"
+}
+{
+    "TABLE_CATALOG": "DRILL",
+    "TABLE_SCHEMA": "sample",
+    "TABLE_NAME": "region",
+    "TABLE_TYPE": "TABLE"
+}

@@ -13,16 +13,18 @@ int RpcDecoder::LengthDecode(const uint8_t* buf, uint32_t* p_length) {
     CodedInputStream* cis = new CodedInputStream(buf, 4); // read 4 bytes at most
 
     int pos0 = cis->CurrentPosition(); // for debugging
-    if(CODER_DEBUGGING)
-        cerr << "pos0 = " << pos0 << endl;
     cis->ReadVarint32(p_length);
-    cerr << "p_length = " << *p_length << endl;
-    int pos1 = cis->CurrentPosition();
-    if(CODER_DEBUGGING)
-        cerr << "pos1 = " << pos1 << endl;
-    cerr << "Reading full length " << *p_length << endl;
-    assert( (pos1-pos0) == getRawVarintSize(*p_length));
 
+#ifdef CODER_DEBUG
+    cerr << "p_length = " << *p_length << endl;
+#endif
+
+    int pos1 = cis->CurrentPosition();
+
+#ifdef CODER_DEBUG
+    cerr << "Reading full length " << *p_length << endl;
+#endif
+    assert( (pos1-pos0) == getRawVarintSize(*p_length));
     return (pos1-pos0);
 }
 
@@ -45,17 +47,13 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
 
     int len_limit = cis->PushLimit(length);
 
-    /*
-    About ExpectTag
-
-    Usually returns true if calling ReadVarint32() now would produce the given value.
-
-    Will always return false if ReadVarint32() would not return the given value. If ExpectTag() returns true, it also advances past the varint. For best performance, use a compile-time constant as the parameter. Always inline because this collapses to a small number of instructions when given a constant parameter, but GCC doesn't want to inline by default.
-    */
     uint32_t header_length = 0;
     cis->ExpectTag(RpcEncoder::HEADER_TAG);
     cis->ReadVarint32(&header_length);
+
+#ifdef CODER_DEBUG
     cerr << "Reading header length " << header_length << ", post read index " << cis->CurrentPosition() << endl;
+#endif
 
     exec::rpc::RpcHeader header;
     int header_limit = cis->PushLimit(header_length);
@@ -71,7 +69,10 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
     cis->ExpectTag(RpcEncoder::PROTOBUF_BODY_TAG);
     uint32_t p_body_length = 0;
     cis->ReadVarint32(&p_body_length);
+
+#ifdef CODER_DEBUG
     cerr << "Reading protobuf body length " << p_body_length << ", post read index " << cis->CurrentPosition() << endl;
+#endif
 
     msg.m_pbody.resize(p_body_length);
     cis->ReadRaw(msg.m_pbody.data(),p_body_length);
@@ -79,25 +80,27 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
 
     // read the data body.
     if (cis->BytesUntilLimit() > 0 ) {
-        if(EXTRA_DEBUGGING) {
+#ifdef CODER_DEBUG
             cerr << "Reading raw body, buffer has "<< cis->BytesUntilLimit() << " bytes available, current possion "<< cis->CurrentPosition()  << endl;
-        }
+#endif
         cis->ExpectTag(RpcEncoder::RAW_BODY_TAG);
         uint32_t d_body_length = 0;
         cis->ReadVarint32(&d_body_length);
 
         if(cis->BytesUntilLimit() != d_body_length) {
+#ifdef CODER_DEBUG
             cerr << "Expected to receive a raw body of " << d_body_length << " bytes but received a buffer with " <<cis->BytesUntilLimit() << " bytes." << endl;
+#endif
         }
         msg.m_dbody.resize(d_body_length);
         cis->ReadRaw(msg.m_dbody.data(), d_body_length);
-        if(EXTRA_DEBUGGING) {
-            cerr << "Read raw body of " << d_body_length << " bytes" << endl;
-        }
+#ifdef CODER_DEBUG
+        cerr << "Read raw body of " << d_body_length << " bytes" << endl;
+#endif
     } else {
-        if(EXTRA_DEBUGGING) {
+#ifdef CODER_DEBUG
             cerr << "No need to read raw body, no readable bytes left." << endl;
-        }
+#endif
     }
     cis->PopLimit(len_limit);
 
@@ -106,7 +109,9 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
     // move the reader index forward so the next rpc call won't try to work with it.
     // buffer.skipBytes(dBodyLength);
     // messageCounter.incrementAndGet();
+#ifdef CODER_DEBUG
     cerr << "Inbound Rpc Message Decoded " << msg << endl;
+#endif
 
     int pos1 = cis->CurrentPosition();
     assert((pos1-pos0) == length);
