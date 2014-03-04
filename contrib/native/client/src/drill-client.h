@@ -11,10 +11,12 @@ struct DrillConfig {
 
 // Wrapper for response of each request
 struct ExecutionContext {
-    bool m_coord_id;                    // the coordination id for each request
-	exec::user::QueryResult m_result;   // including query_id, record count and so on 
+    int m_coord_id;                    	// the coordination id for each request
     bool m_failure;                     // whether it is a request failure
-    exec::rpc::RpcFailure m_failure;    // the failure message if we get failed
+    int m_type; 			// type of response (QUERY_RESULT, QUERY_HANDLE) 
+    google::protobuf::MessageLite* m_response  // response from the server {RpcFailure, QueryId, QueryResult}
+    // exec::user::QueryResult m_result;   	// including query_id, record count and so on //
+    //exec::rpc::RpcFailure m_failure;    // the failure message if we get failed
 };
 
 class ClusterCoordinator {
