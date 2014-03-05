@@ -91,19 +91,28 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx, co
         
         cerr << "--> Receiving msg " << cnt + 1 << ": " << endl;
         recv_sync(in_msg);
+
         if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE){
             ctx.m_failure = true;
             return;
         } else if (in_msg.m_mode == exec::rpc::RESPONSE){
             ctx.m_failure = false;
-     
-            result.ParseFromArray(r_msgs[cnt].m_pbody.data(), r_msgs[cnt].m_pbody.size());
+            result.ParseFromArray(in_msg.m_pbody.data(), r_msgs[cnt].m_pbody.size());
 #ifdef EXTRA_DEBUGGING
             cerr << result.DebugString() << endl;
 #endif
             cnt ++;
         } else {
+            cerr << in_msg.m_mode << "\n";
+            cerr << "request = " << exec::rpc::REQUEST << "\n";
+            cerr << "response = " << exec::rpc::RESPONSE << "\n";
+            cerr << "response_failure = " << exec::rpc::RESPONSE_FAILURE << "\n";
             cerr << "Unknown RPC mode!\n";
+            result.ParseFromArray(in_msg.m_pbody.data(), in_msg.m_pbody.size());
+#ifdef EXTRA_DEBUGGING
+            cerr << result.DebugString() << endl;
+#endif
+
             return;
         }
 
