@@ -36,9 +36,9 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
 
     // if(!ctx.channel().isOpen()){ return; }
 
-    if (EXTRA_DEBUGGING) {
+#ifdef  EXTRA_DEBUGGING
         cerr <<  "\nInbound rpc message received." << endl;
-    }
+#endif
 
     CodedInputStream* cis = new CodedInputStream(buf, length);
 
