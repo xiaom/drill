@@ -18,7 +18,7 @@ struct ExecutionContext {
     bool m_failure;  // true if RpcMode is RESPONSE_FAILURE
     int m_type;      // type of the response, could be QUERY_RESULT or QUERY_HANDLE
     google::protobuf::MessageLite*  m_response;  // the response from the server.
-            // one of { exec::user::QueryResult, exec::user::exec::rpc::RpcFailure
+    // one of { exec::user::QueryResult, exec::user::exec::rpc::RpcFailure
 };
 
 class ClusterCoordinator {
@@ -71,7 +71,7 @@ class DrillClient {
     virtual void OpenSession(const UserServerEndPoint& endpoint, ExecutionContext& context) = 0;
 
     /// @brief Send Goodbye message to close the session
-    virtual void CloseSession(ExecutionContext& context){
+    virtual void CloseSession(ExecutionContext& context) {
 
     }
 
@@ -85,7 +85,7 @@ class DrillClient {
     virtual void PrepareStatement(
         const string& query,
         ExecutionContext& context,
-        RecordBatchBuffer& buffer){
+        RecordBatchBuffer& buffer) {
 
     }
 
@@ -98,7 +98,7 @@ class DrillClient {
     virtual void BindStatement(
         const ExecutionContext& in_context,
         const string& parameters,
-        ExecutionContext& out_context){
+        ExecutionContext& out_context) {
 
     }
 
@@ -112,7 +112,7 @@ class DrillClient {
     virtual void ExecuteStatement(
         const ExecutionContext& in_context,
         ExecutionContext& out_context,
-        RecordBatchBuffer& buffer){
+        RecordBatchBuffer& buffer) {
 
     }
 
@@ -123,7 +123,7 @@ class DrillClient {
         const ExecutionContext& in_ctx,
         const string& query,
         ExecutionContext& context,
-        RecordBatchBuffer& buffer){
+        RecordBatchBuffer& buffer) {
     }
 
     /// @brief Cancel the query
@@ -150,32 +150,32 @@ class DrillClientSync2: DrillClient {
     ~DrillClientSync2() { };
 
     void OpenSession(const UserServerEndPoint& endpoint, ExecutionContext& context);
-    void CloseSession(ExecutionContext& context){
+    void CloseSession(ExecutionContext& context) {
 
     }
 
     void PrepareStatement(
         const string& query,
         ExecutionContext& context,
-        RecordBatchBuffer& buffer){
+        RecordBatchBuffer& buffer) {
 
     }
 
     void BindStatement(
         const ExecutionContext& in_context,
         const string& parameters,
-        ExecutionContext& out_context){
+        ExecutionContext& out_context) {
 
     }
 
     void ExecuteStatement(
         const ExecutionContext& in_context,
         ExecutionContext& out_context,
-        RecordBatchBuffer& buffer){
+        RecordBatchBuffer& buffer) {
 
     }
 
-    void ExecuteStatementDirect(const ExecutionContext& in_ctx, const string& query, 
+    void ExecuteStatementDirect(const ExecutionContext& in_ctx, const exec::user::RunQuery & drill_query,
                                 ExecutionContext& ctx, RecordBatchBuffer& buffer);
     void CancelStatement(ExecutionContext& context) {
 
