@@ -1,0 +1,8 @@
+{
+  "storage":{
+    dfs: {
+      type: "file",
+      connection: "file:///"
+    }
+  }  
+}

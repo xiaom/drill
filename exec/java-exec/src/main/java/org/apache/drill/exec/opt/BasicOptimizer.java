@@ -24,17 +24,25 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.defs.OrderDef;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.LogicalPlan;
 import org.apache.drill.common.logical.PlanProperties;
-import org.apache.drill.common.logical.StorageEngineConfig;
-import org.apache.drill.common.logical.data.*;
-import org.apache.drill.common.logical.data.Order.Direction;
+import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.logical.data.CollapsingAggregate;
+import org.apache.drill.common.logical.data.Filter;
+import org.apache.drill.common.logical.data.Join;
+import org.apache.drill.common.logical.data.JoinCondition;
+import org.apache.drill.common.logical.data.NamedExpression;
+import org.apache.drill.common.logical.data.Order;
 import org.apache.drill.common.logical.data.Order.Ordering;
+import org.apache.drill.common.logical.data.Project;
+import org.apache.drill.common.logical.data.Scan;
+import org.apache.drill.common.logical.data.Segment;
+import org.apache.drill.common.logical.data.SinkOperator;
+import org.apache.drill.common.logical.data.Store;
 import org.apache.drill.common.logical.data.visitors.AbstractLogicalVisitor;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -43,13 +51,15 @@ import org.apache.drill.exec.exception.OptimizerException;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.config.Limit;
 import org.apache.drill.exec.physical.config.MergeJoinPOP;
 import org.apache.drill.exec.physical.config.Screen;
 import org.apache.drill.exec.physical.config.SelectionVectorRemover;
 import org.apache.drill.exec.physical.config.Sort;
-import org.apache.drill.exec.physical.config.Limit;
 import org.apache.drill.exec.physical.config.StreamingAggregate;
-import org.apache.drill.exec.store.StorageEngine;
+import org.apache.drill.exec.store.StoragePlugin;
+import org.eigenbase.rel.RelFieldCollation.Direction;
+import org.eigenbase.rel.RelFieldCollation.NullDirection;
 
 import com.beust.jcommander.internal.Lists;
 
@@ -123,9 +133,9 @@ public class BasicOptimizer extends Optimizer{
     @Override
     public PhysicalOperator visitOrder(Order order, Object value) throws OptimizerException {
       PhysicalOperator input = order.getInput().accept(this, value);
-      List<OrderDef> ods = Lists.newArrayList();
+      List<Ordering> ods = Lists.newArrayList();
       for(Ordering o : order.getOrderings()){
-        ods.add(OrderDef.create(o));
+        ods.add(o);
       }
       return new SelectionVectorRemover(new Sort(input, ods, false));
     }
@@ -150,13 +160,13 @@ public class BasicOptimizer extends Optimizer{
       }
       
       // a collapsing aggregate is a currently implemented as a sort followed by a streaming aggregate.
-      List<OrderDef> orderDefs = Lists.newArrayList();
+      List<Ordering> orderDefs = Lists.newArrayList();
       
       List<NamedExpression> keys = Lists.newArrayList();
       for(LogicalExpression e : segment.getExprs()){
         if( !(e instanceof SchemaPath)) throw new OptimizerException("The basic optimizer doesn't currently support collapsing aggregate where the segment value is something other than a SchemaPath.");
         keys.add(new NamedExpression(e, new FieldReference((SchemaPath) e)));
-        orderDefs.add(new OrderDef(Direction.ASC, e));
+        orderDefs.add(new Ordering(Direction.Ascending, e, NullDirection.FIRST));
       }
       Sort sort = new Sort(segment.getInput().accept(this, value), orderDefs, false);
       
@@ -169,22 +179,22 @@ public class BasicOptimizer extends Optimizer{
     @Override
     public PhysicalOperator visitJoin(Join join, Object value) throws OptimizerException {
       PhysicalOperator leftOp = join.getLeft().accept(this, value);
-      List<OrderDef> leftOrderDefs = Lists.newArrayList();
+      List<Ordering> leftOrderDefs = Lists.newArrayList();
       for(JoinCondition jc : join.getConditions()){
-        leftOrderDefs.add(new OrderDef(Direction.ASC, jc.getLeft()));
+        leftOrderDefs.add(new Ordering(Direction.Ascending, jc.getLeft()));
       }
       leftOp = new Sort(leftOp, leftOrderDefs, false);
       leftOp = new SelectionVectorRemover(leftOp);
       
       PhysicalOperator rightOp = join.getRight().accept(this, value);
-      List<OrderDef> rightOrderDefs = Lists.newArrayList();
+      List<Ordering> rightOrderDefs = Lists.newArrayList();
       for(JoinCondition jc : join.getConditions()){
-        rightOrderDefs.add(new OrderDef(Direction.ASC, jc.getRight()));
+        rightOrderDefs.add(new Ordering(Direction.Ascending, jc.getRight()));
       }
       rightOp = new Sort(rightOp, rightOrderDefs, false);
       rightOp = new SelectionVectorRemover(rightOp);
       
-      MergeJoinPOP mjp = new MergeJoinPOP(leftOp, rightOp, Arrays.asList(join.getConditions()), join.getJointType());
+      MergeJoinPOP mjp = new MergeJoinPOP(leftOp, rightOp, Arrays.asList(join.getConditions()), join.getJoinType());
       return new SelectionVectorRemover(mjp);
     }
 
@@ -192,11 +202,11 @@ public class BasicOptimizer extends Optimizer{
 
     @Override
     public PhysicalOperator visitScan(Scan scan, Object obj) throws OptimizerException {
-      StorageEngineConfig config = logicalPlan.getStorageEngineConfig(scan.getStorageEngine());
+      StoragePluginConfig config = logicalPlan.getStorageEngineConfig(scan.getStorageEngine());
       if(config == null) throw new OptimizerException(String.format("Logical plan referenced the storage engine config %s but the logical plan didn't have that available as a config.", scan.getStorageEngine()));
-      StorageEngine engine;
+      StoragePlugin engine;
       try {
-        engine = context.getStorageEngine(config);
+        engine = context.getStorage().getEngine(config);
         return engine.getPhysicalScan(scan);
       } catch (IOException | ExecutionSetupException e) {
         throw new OptimizerException("Failure while attempting to retrieve storage engine.", e);
