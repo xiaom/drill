@@ -26,7 +26,7 @@ void DrillClientSync2::OpenSession(const UserServerEndPoint& userver, ExecutionC
     recv_sync(in_msg);
 
     ctx.m_coord_id = in_msg.m_coord_id;
-    if ( in_msg.m_mode == exec::rpc::RESPONSE ){
+    if ( in_msg.m_mode == exec::rpc::RESPONSE ) {
         ctx.m_failure = false;
         // expect BitToUserHandshake
         exec::user::BitToUserHandshake b2u;
@@ -35,7 +35,7 @@ void DrillClientSync2::OpenSession(const UserServerEndPoint& userver, ExecutionC
         if (b2u.rpc_version() != u2b.rpc_version()) {
             cerr << "Invalid rpc version.  Expected << " <<u2b.rpc_version() << ", actual "<< b2u.rpc_version() << "." << endl;
         }
-    } else if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE){
+    } else if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE) {
         // TODO handle response failure
         ctx.m_failure = true;
         return;
@@ -44,13 +44,10 @@ void DrillClientSync2::OpenSession(const UserServerEndPoint& userver, ExecutionC
     }
 }
 
-void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx, const string& query, ExecutionContext& ctx, RecordBatchBuffer& buffer) {
-    cerr << "query = " << query << endl;
-    exec::user::RunQuery drill_query;
-    drill_query.set_results_mode(exec::user::STREAM_FULL);
-    drill_query.set_type(exec::user::PHYSICAL); // set the query type, assuming physical plan
-    drill_query.set_plan(query);
-
+void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx,
+        const exec::user::RunQuery& drill_query,
+        ExecutionContext& ctx, RecordBatchBuffer& buffer) {
+    cerr << "query = " << drill_query.plan() << endl;
     // send the query
     OutBoundRpcMessage out_msg(exec::rpc::REQUEST, exec::user::RUN_QUERY, in_ctx.m_coord_id + 1, &drill_query);
     send_sync(out_msg);
@@ -58,10 +55,10 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx, co
     // receive the query id
     InBoundRpcMessage in_msg;
     recv_sync(in_msg);
-    if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE){
+    if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE) {
         ctx.m_failure = true;
         return;
-    } else if ( in_msg.m_mode == exec::rpc::RESPONSE){
+    } else if ( in_msg.m_mode == exec::rpc::RESPONSE) {
         ctx.m_failure = false;
         ctx.m_type = in_msg.m_rpc_type;
         cerr << "m_type = " << ctx.m_type << "\n";
@@ -76,7 +73,7 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx, co
         qid.ParseFromArray(in_msg.m_pbody.data(), in_msg.m_pbody.size());
 
 #ifdef EXTRA_DEBUGGING
-    cerr << qid.DebugString() << endl;
+        cerr << qid.DebugString() << endl;
 #endif
     } else {
         cerr << "Unknown RPC mode!\n";
@@ -88,31 +85,30 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx, co
     exec::user::QueryResult result;
     int cnt = 0;
     do {
-        
+
         cerr << "--> Receiving msg " << cnt + 1 << ": " << endl;
         recv_sync(in_msg);
 
-        if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE){
+        if (in_msg.m_mode == exec::rpc::RESPONSE_FAILURE) {
             ctx.m_failure = true;
             return;
-        } else if (in_msg.m_mode == exec::rpc::RESPONSE){
+        } else if (in_msg.m_mode == exec::rpc::RESPONSE) {
             ctx.m_failure = false;
             result.ParseFromArray(in_msg.m_pbody.data(), r_msgs[cnt].m_pbody.size());
 #ifdef EXTRA_DEBUGGING
             cerr << result.DebugString() << endl;
 #endif
             cnt ++;
-        } else {
-            cerr << in_msg.m_mode << "\n";
-            cerr << "request = " << exec::rpc::REQUEST << "\n";
-            cerr << "response = " << exec::rpc::RESPONSE << "\n";
-            cerr << "response_failure = " << exec::rpc::RESPONSE_FAILURE << "\n";
-            cerr << "Unknown RPC mode!\n";
+        } else if (in_msg.m_mode == exec::rpc::REQUEST) {
+            /// aha, we get a request...?
             result.ParseFromArray(in_msg.m_pbody.data(), in_msg.m_pbody.size());
 #ifdef EXTRA_DEBUGGING
+            cerr << "receive a REQUEST" << endl;
             cerr << result.DebugString() << endl;
 #endif
 
+        } else {
+            cerr << "Unknown RPC mode!\n";
             return;
         }
 

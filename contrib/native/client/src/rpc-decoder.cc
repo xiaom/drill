@@ -81,7 +81,7 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
     // read the data body.
     if (cis->BytesUntilLimit() > 0 ) {
 #ifdef CODER_DEBUG
-            cerr << "Reading raw body, buffer has "<< cis->BytesUntilLimit() << " bytes available, current possion "<< cis->CurrentPosition()  << endl;
+        cerr << "Reading raw body, buffer has "<< cis->BytesUntilLimit() << " bytes available, current possion "<< cis->CurrentPosition()  << endl;
 #endif
         cis->ExpectTag(RpcEncoder::RAW_BODY_TAG);
         uint32_t d_body_length = 0;
@@ -99,7 +99,7 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
 #endif
     } else {
 #ifdef CODER_DEBUG
-            cerr << "No need to read raw body, no readable bytes left." << endl;
+        cerr << "No need to read raw body, no readable bytes left." << endl;
 #endif
     }
     cis->PopLimit(len_limit);

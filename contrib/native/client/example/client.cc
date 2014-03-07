@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
         if (argc !=1 && argc != 4) {
             std::cout << "Usage: drill_client <server> <port> <plan>\n";
             std::cout << "Example:\n";
-            std::cout << "  drill_client 127.0.0.1 31010 ../resources/parquet_scan_union_screen_physical.json\n";
+            std::cout << "drill_client 127.0.0.1 31010 ../resources/parquet_scan_union_screen_physical.json\n";
             return 1;
         }
 
@@ -34,10 +34,17 @@ int main(int argc, char* argv[]) {
 
         ifstream f(plan_filename);
         string plan((std::istreambuf_iterator<char>(f)), (std::istreambuf_iterator<char>()));
+        plan = "select * from INFORMATION_SCHEMA.SCHEMATA\n";
 
         RecordBatchBuffer result_buffer;
         ExecutionContext current_ctx;
-        client.ExecuteStatementDirect(ctx, plan, current_ctx, result_buffer);
+        
+        exec::user::RunQuery drill_query;
+        drill_query.set_results_mode(exec::user::STREAM_FULL); // the only mode supported by now
+        drill_query.set_type(exec::user::SQL); // set the query type, assuming physical plan
+        drill_query.set_plan(plan);
+
+        client.ExecuteStatementDirect(ctx, drill_query, current_ctx, result_buffer);
         client.CloseSession(ctx);
     } catch (std::exception& e) {
         cerr << e.what() << endl;
