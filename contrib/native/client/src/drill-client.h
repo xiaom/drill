@@ -141,13 +141,13 @@ class DrillClient {
 };
 
 
-class DrillClientSync2: DrillClient {
+class DrillClientSync: DrillClient {
   public:
-    DrillClientSync2(asio::io_service& io_service):
+    DrillClientSync(asio::io_service& io_service):
         m_io_service(io_service), m_socket(io_service),
         m_rbuf(10240), m_wbuf(10240), m_rmsg_len(0) { }
 
-    ~DrillClientSync2() { };
+    ~DrillClientSync() { };
 
     void OpenSession(const UserServerEndPoint& endpoint, ExecutionContext& context);
     void CloseSession(ExecutionContext& context) {
