@@ -5,7 +5,7 @@ using std::vector;
 using namespace Drill;
 
 
-void DrillClientSync2::OpenSession(const UserServerEndPoint& userver, ExecutionContext& ctx) {
+void DrillClientSync::OpenSession(const UserServerEndPoint& userver, ExecutionContext& ctx) {
     // connect the endpoint
     asio::ip::tcp::endpoint endpoint(asio::ip::address::from_string(userver.m_addr), userver.m_port);
     m_socket.connect(endpoint);
@@ -44,7 +44,7 @@ void DrillClientSync2::OpenSession(const UserServerEndPoint& userver, ExecutionC
     }
 }
 
-void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx,
+void DrillClientSync::ExecuteStatementDirect(const ExecutionContext& in_ctx,
         const exec::user::RunQuery& drill_query,
         ExecutionContext& ctx, RecordBatchBuffer& buffer) {
     cerr << "query = " << drill_query.plan() << endl;
@@ -61,9 +61,7 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx,
     } else if ( in_msg.m_mode == exec::rpc::RESPONSE) {
         ctx.m_failure = false;
         ctx.m_type = in_msg.m_rpc_type;
-        cerr << "m_type = " << ctx.m_type << "\n";
-        cerr << "QUERY HANLE = " << exec::user::QUERY_HANDLE << "\n";
-
+        assert(ctx.m_type == exec::user::QUERY_HANDLE);
         // expect query id
         exec::shared::QueryId qid;
 #ifdef EXTRA_DEBUGGING
@@ -118,7 +116,7 @@ void DrillClientSync2::ExecuteStatementDirect(const ExecutionContext& in_ctx,
 
 }
 
-void DrillClientSync2::EndStatement(ExecutionContext& context) {
+void DrillClientSync::EndStatement(ExecutionContext& context) {
     // TODO: need coordination id
     // send ack
     exec::rpc::Ack ack;
@@ -129,12 +127,12 @@ void DrillClientSync2::EndStatement(ExecutionContext& context) {
     send_sync(ack_msg);
 }
 
-void DrillClientSync2::send_sync(OutBoundRpcMessage& msg) {
+void DrillClientSync::send_sync(OutBoundRpcMessage& msg) {
     m_encoder.Encode(m_wbuf, msg);
     m_socket.write_some(asio::buffer(m_wbuf));
 }
 
-void DrillClientSync2::recv_sync(InBoundRpcMessage& msg) {
+void DrillClientSync::recv_sync(InBoundRpcMessage& msg) {
     m_socket.read_some(asio::buffer(m_rbuf));
     uint32_t length = 0;
     int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &length);

@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
         UserServerEndPoint user_server(drill_addr,port);
         asio::io_service io_service;
-        DrillClientSync2 client(io_service);
+        DrillClientSync client(io_service);
         
         cerr << "Connecting to the Server..." << endl;
         ExecutionContext ctx;
