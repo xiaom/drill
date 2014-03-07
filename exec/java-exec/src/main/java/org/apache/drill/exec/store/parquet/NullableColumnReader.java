@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.parquet;
 
+import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.NullableVectorDefinitionSetter;
 import org.apache.drill.exec.vector.ValueVector;
@@ -25,7 +26,7 @@ import parquet.hadoop.metadata.ColumnChunkMetaData;
 
 import java.io.IOException;
 
-public abstract class NullableColumnReader extends ColumnReader{
+abstract class NullableColumnReader extends ColumnReader{
 
   int nullsFound;
   // used to skip nulls found
@@ -34,7 +35,7 @@ public abstract class NullableColumnReader extends ColumnReader{
   int bitsUsed;
 
   NullableColumnReader(ParquetRecordReader parentReader, int allocateSize, ColumnDescriptor descriptor, ColumnChunkMetaData columnChunkMetaData,
-               boolean fixedLength, ValueVector v){
+               boolean fixedLength, ValueVector v) throws ExecutionSetupException {
     super(parentReader, allocateSize, descriptor, columnChunkMetaData, fixedLength, v);
   }
 
