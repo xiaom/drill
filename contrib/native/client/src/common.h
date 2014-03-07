@@ -38,8 +38,8 @@ namespace asio = boost::asio;
 typedef void MQueryResult; // TODO expand later
 typedef void QueryResultHandle;
 
-#define EXTRA_DEBUGGING true
-#define CODER_DEBUGGING true
+#define EXTRA_DEBUGGING false
+#define CODER_DEBUGGING false
 #define LENGTH_PREFIX_MAX_LENGTH 4
 namespace Drill {
 
