@@ -47,7 +47,9 @@ void DrillClientSync::OpenSession(const UserServerEndPoint& userver, ExecutionCo
 void DrillClientSync::ExecuteStatementDirect(const ExecutionContext& in_ctx,
         const exec::user::RunQuery& drill_query,
         ExecutionContext& ctx, RecordBatchBuffer& buffer) {
+#ifdef EXTRA_DEBUGGING
     cerr << "query = " << drill_query.plan() << endl;
+#endif
     // send the query
     OutBoundRpcMessage out_msg(exec::rpc::REQUEST, exec::user::RUN_QUERY, in_ctx.m_coord_id + 1, &drill_query);
     send_sync(out_msg);
