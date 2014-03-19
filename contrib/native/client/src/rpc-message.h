@@ -11,7 +11,7 @@ class InBoundRpcMessage {
     int m_rpc_type;
     int m_coord_id;
     DataBuf m_pbody;
-    DataBuf m_dbody;
+    ByteBuf_t m_dbody;
     friend ostream& operator<< (ostream & out, InBoundRpcMessage& msg);
 
     /*

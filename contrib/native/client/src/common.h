@@ -13,6 +13,7 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
+#include <boost/log/trivial.hpp>
 #include <google/protobuf/message_lite.h>
 #include <google/protobuf/wire_format_lite.h>
 
@@ -32,6 +33,7 @@ using std::ifstream;
 using std::ostream;
 using std::memmove;
 using exec::rpc::RpcMode;
+//using boost::log;
 
 namespace asio = boost::asio;
 
@@ -42,8 +44,14 @@ typedef void QueryResultHandle;
     #define EXTRA_DEBUGGING
     #define CODER_DEBUGGING 
 #endif
-#define LENGTH_PREFIX_MAX_LENGTH 4
+
+#define LENGTH_PREFIX_MAX_LENGTH 5
+#define LEN_PREFIX_BUFLEN LENGTH_PREFIX_MAX_LENGTH+11
+
 namespace Drill {
+
+typedef boost::uint8_t Byte_t;
+typedef Byte_t * ByteBuf_t;
 
 struct UserServerEndPoint {
     string m_addr;
