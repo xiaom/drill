@@ -1,5 +1,7 @@
 #include "common.h"
 #include "drill-client-async.h"
+#include "recordBatch.h"
+
 using boost::system::error_code;
 using namespace exec::user;
 using namespace Drill;
@@ -40,7 +42,7 @@ bool DrillClientAsync::ValidateHandShake() {
 
     // validate handshake
     if (b2u.rpc_version() != u2b.rpc_version()) {
-        cerr << "Invalid rpc version.  Expected << " <<u2b.rpc_version() << ", actual "<< b2u.rpc_version() << "." << endl;
+        BOOST_LOG_TRIVIAL(trace) << "Invalid rpc version.  Expected << " <<u2b.rpc_version() << ", actual "<< b2u.rpc_version() << "." ;
         return false;
     }
     return true;
@@ -48,7 +50,7 @@ bool DrillClientAsync::ValidateHandShake() {
 
 
 void DrillClientAsync::SubmitQuery(QueryType t, const string& plan) {
-    cerr << "plan = " << plan << endl;
+    BOOST_LOG_TRIVIAL(trace) << "plan = " << plan;
     RunQuery query;
     query.set_results_mode(STREAM_FULL);
     query.set_type(t);
@@ -58,91 +60,110 @@ void DrillClientAsync::SubmitQuery(QueryType t, const string& plan) {
     OutBoundRpcMessage out_msg(exec::rpc::REQUEST, RUN_QUERY, coord_id, &query);
     send_sync(out_msg);
 
-    for (int i =0 ; i< 6000000; i++) {
-        ;
-    }
+    BOOST_LOG_TRIVIAL(trace)  << "do read";
+    InBoundRpcMessage in_msg;
+    recv_sync(in_msg);
+    exec::shared::QueryId qid;
+    BOOST_LOG_TRIVIAL(trace)  << "m_pbody = " << in_msg.m_pbody.size();
+    qid.ParseFromArray(in_msg.m_pbody.data(), in_msg.m_pbody.size());
+    BOOST_LOG_TRIVIAL(trace) << qid.DebugString();
 
-    do_read();
-}
-
-QueryResultHandle DrillClientAsync::GetResult() {
-
-    std::vector<InBoundRpcMessage> r_msgs(1024);
-    QueryResult result;
-    int cnt = 0;
-    do {
-        cerr << "--> Receiving msg " << cnt + 1 << ": " << endl;
-        recv_sync(r_msgs[cnt]);
-        result.ParseFromArray(r_msgs[cnt].m_pbody.data(), r_msgs[cnt].m_pbody.size());
-        cerr << result.DebugString() << endl;
-        cnt ++;
-    } while(!result.is_last_chunk());
-
-    cerr << cnt + 1 << " messages received for results" << endl;
-
-
-    exec::rpc::Ack ack;
-    ack.set_ok(true);
-    int coord_id = r_msgs[cnt-1].m_coord_id + 1;
-    OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, ACK, coord_id, &ack);
-    send_sync(ack_msg);
 }
 
 
-void DrillClientAsync::do_read() {
-    // read at most 4 bytes to get the length of the message
-    cerr << "do read" << endl;
-    async_read(m_socket,
-               asio::buffer(m_rbuf.data(), 4),
-               boost::bind(&DrillClientAsync::handle_read_length, this,
-                           asio::placeholders::error, asio::placeholders::bytes_transferred)
-              );
+void DrillClientAsync::GetResult() {
+    // TODO: Check for last chunk and stop listening for more results
+    this->m_last_chunk=false;
+    BOOST_LOG_TRIVIAL(trace)  << "Getting Results" << endl;
+    GetNextRecordBatch();
 }
+
+//TODO: GetNextRecordBatch should return a RecordBatch object thru a callback
+void DrillClientAsync::GetNextRecordBatch() {
+    BOOST_LOG_TRIVIAL(trace) << "Getting next record batch" << endl;
+    //memset(m_readLengthBuf, 0, LEN_PREFIX_BUFLEN);
+    async_read( 
+	    m_socket,
+	    asio::buffer(m_readLengthBuf, LEN_PREFIX_BUFLEN),
+	    boost::bind(
+            &DrillClientAsync::handle_read_length, 
+            this,
+            asio::placeholders::error, asio::placeholders::bytes_transferred)
+        );
+}
+
 void DrillClientAsync::handle_read_length(const error_code & err, size_t bytes_transferred) {
+    if (!err){
+        BOOST_LOG_TRIVIAL(trace) << "> handle read length" << endl;
+        int bytes_read = m_decoder.LengthDecode(this->m_readLengthBuf, &this->m_rmsg_len);
+        BOOST_LOG_TRIVIAL(trace) << "bytes read = " << bytes_read << endl;
+        BOOST_LOG_TRIVIAL(trace) << "m_rmsg_len = " << m_rmsg_len << endl;
 
-    if (!err) {
-        cerr << "> handle read length" << endl;
-        int bytes_read = m_decoder.LengthDecode(m_rbuf.data(), &m_rmsg_len);
-        cerr << "bytes read = " << bytes_read << endl;
-        cerr << "m_rmsg_len = " << m_rmsg_len << endl;
-
-        if (m_rmsg_len) {
-            size_t leftover = LENGTH_PREFIX_MAX_LENGTH - bytes_read;
-            if(leftover) {
-                memmove(m_rbuf.data(), m_rbuf.data() + bytes_read, leftover);
+        if(m_rmsg_len){
+            size_t leftover = LEN_PREFIX_BUFLEN - bytes_read;
+            // Allocate a buffer
+            this->m_currentBuffer=allocateBuffer(m_rmsg_len);
+            if(this->m_currentBuffer==NULL){
+                //TODO: Throw out of memory exception
             }
+            if(leftover){
+                memcpy(m_currentBuffer, this->m_readLengthBuf + bytes_read, leftover);
+            }
+            this->m_dataBuffers.push_back(m_currentBuffer);
             async_read( m_socket,
-                        asio::buffer(m_rbuf.data() + leftover, m_rmsg_len - leftover),
+                        asio::buffer(m_currentBuffer + leftover, m_rmsg_len - leftover),
                         boost::bind(&DrillClientAsync::handle_read_msg, this,
                                     asio::placeholders::error, asio::placeholders::bytes_transferred)
-                      );
-
+                       );
         }
-    } else {
-        cerr << "handle_read_length error: " << err << "\n";
+    }else{
+        BOOST_LOG_TRIVIAL(trace) << "handle_read_length error: " << err << "\n";
     }
 }
+
 void DrillClientAsync::handle_read_msg(const error_code & err, size_t bytes_transferred) {
-    cerr << "read msg" << endl;
+    BOOST_LOG_TRIVIAL(trace) << "read msg" << endl;
     if (!err) {
-        // now message is read into m_rbuf with length m_rmsg_len
+        BOOST_LOG_TRIVIAL(trace) << "Data Message: bytes read = " << bytes_transferred << endl;
 
-        QueryResult result;
         InBoundRpcMessage msg;
-        m_decoder.Decode(m_rbuf.data(), m_rmsg_len, msg);
-        m_rmsg_len = 0; // reset the length
-        // todo ... handle the chunk
-        result.ParseFromArray(msg.m_pbody.data(), msg.m_pbody.size());
-        cerr << result.DebugString() << endl;
+        m_decoder.Decode(m_currentBuffer, m_rmsg_len, msg);
+        BOOST_LOG_TRIVIAL(trace) << "Done decoding chunk" << endl;
+        
+        QueryResult qr;
+        if(msg.m_rpc_type==QUERY_RESULT){
+            qr.ParseFromArray(msg.m_pbody.data(), msg.m_pbody.size());
+            BOOST_LOG_TRIVIAL(trace) << qr.DebugString();
+            //TODO: Check QueryResult.queryState. QueryResult could have an error.
+            //TODO: Build Record Batch here 
+            RecordBatch* pRecordBatch= new RecordBatch(qr.def(), qr.row_count(), msg.m_dbody);
+            pRecordBatch->build();
+            this->m_recordBatches.push_back(pRecordBatch);
 
-        exec::shared::QueryId qid;
-        cerr << "m_pbody = " << msg.m_pbody.size() << endl;
-        qid.ParseFromArray(msg.m_pbody.data(), msg.m_pbody.size());
-        cerr << qid.DebugString() << endl;
+            //TODO: Provide a callback that is called when a record batch is received
+#if DEBUG 
+            pRecordBatch->print(10); // print at most 10 rows per batch
 
-    } else {
-        cerr << "Error: " << err << "\n";
+#endif
+            
+            if(qr.is_last_chunk()){
+                BOOST_LOG_TRIVIAL(trace) << "Received last batch.";
+                return;
+            }
+        }else{
+            //TODO:If not QUERY_RESULT, then do appropriate error handling
+            BOOST_LOG_TRIVIAL(trace) << "QueryResult returned " << msg.m_rpc_type;
+            return;
+        }
+        exec::rpc::Ack ack;
+        ack.set_ok(true);
+        OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, ACK, msg.m_coord_id, &ack);
+        send_sync(ack_msg);
+        BOOST_LOG_TRIVIAL(trace) << "ACK sent" << endl;
+        GetNextRecordBatch();
+    }else{
+        BOOST_LOG_TRIVIAL(trace) << "Error: " << err << "\n";
     }
-
+    return;
 }
 

@@ -51,8 +51,8 @@ int main(int argc, char* argv[]) {
         cerr << "plan = " << plan << endl;
 
         client.SubmitQuery(exec::user::PHYSICAL, plan);
-        //client.GetResult();
-        asio::io_service::work work(io_service);
+        client.GetResult();
+        //asio::io_service::work work(io_service);
         io_service.run();
         client.Close();
     } catch (std::exception& e) {

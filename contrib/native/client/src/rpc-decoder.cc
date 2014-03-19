@@ -10,7 +10,7 @@ using google::protobuf::io::CodedInputStream;
 int RpcDecoder::LengthDecode(const uint8_t* buf, uint32_t* p_length) {
     // read the frame to get the length of the message and then
 
-    CodedInputStream* cis = new CodedInputStream(buf, 4); // read 4 bytes at most
+    CodedInputStream* cis = new CodedInputStream(buf, 5); // read 4 bytes at most
 
     int pos0 = cis->CurrentPosition(); // for debugging
     cis->ReadVarint32(p_length);
@@ -92,8 +92,12 @@ int RpcDecoder::Decode(const uint8_t* buf, int length, InBoundRpcMessage& msg) {
             cerr << "Expected to receive a raw body of " << d_body_length << " bytes but received a buffer with " <<cis->BytesUntilLimit() << " bytes." << endl;
 #endif
         }
-        msg.m_dbody.resize(d_body_length);
-        cis->ReadRaw(msg.m_dbody.data(), d_body_length);
+        //msg.m_dbody.resize(d_body_length);
+        //cis->ReadRaw(msg.m_dbody.data(), d_body_length);
+        uint32_t currPos=cis->CurrentPosition();
+        cis->GetDirectBufferPointer((const void**)&msg.m_dbody, (int*)&d_body_length);
+        assert(msg.m_dbody==buf+currPos);
+        cis->Skip(d_body_length);
 #ifdef CODER_DEBUG
         cerr << "Read raw body of " << d_body_length << " bytes" << endl;
 #endif

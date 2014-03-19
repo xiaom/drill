@@ -8,12 +8,14 @@ message("CMAKE_SOURCE_DIR = " ${CMAKE_SYSTEM_NAME})
 set(Boost_USE_STATIC_LIBS OFF) 
 set(Boost_USE_MULTITHREADED ON)  
 set(Boost_USE_STATIC_RUNTIME OFF) 
-find_package(Boost REQUIRED COMPONENTS regex system date_time chrono thread)
+find_package(Boost REQUIRED COMPONENTS regex system date_time chrono thread log)
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(CMAKE_COMPILER_IS_GNUCXX) 
     set(CMAKE_EXE_LINKER_FLAGS "-lrt -lpthread")                                                   
 endif()    
+
+add_definitions(-DBOOST_ALL_DYN_LINK)
 
 find_package(Protobuf REQUIRED)
 #set(PROTOBUF_INCLUDE_DIR ${THIRD_PARTY_DIR}/protobuf/include)
