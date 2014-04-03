@@ -1,3 +1,5 @@
+#include <boost/log/trivial.hpp>
+
 #include "common.h"
 #include "recordBatch.h"
 
@@ -243,16 +245,19 @@ int RecordBatch::build(){
     // Load the vector.(Load creates a valuevector object of the correct type:
     //    Use ValueVectorFactory(type) to create the right type. 
     //    Create a Value Vector of the Sliced Byte Buf. 
-    // Add the Materialized field to vector
+    // Add the field batch to vector
     size_t startOffset=0;
     //TODO: handle schema changes here. Call a client provided callback?
     for(int i=0; i<this->m_numFields; i++){
-        const FieldMetadata& fmd=this->m_recordBatchDef.field(i);
+        const FieldMetadata& fmd=this->m_pRecordBatchDef->field(i);
         size_t len=fmd.buffer_length();
         FieldBatch* pField = new FieldBatch(fmd, this->m_buffer, startOffset, len) ;
         startOffset+=len;
         pField->load(); // set up the value vectors
         this->m_fields.push_back(pField);
+        //also save Field definitions in a Field Metadata vector.
+        //Look for Field in the vector. If not, add it and trigger a Schema change event
+        //
     }
     return 0;
 }
@@ -265,9 +270,11 @@ void RecordBatch::print(size_t num){
         nameList+=name;
         nameList+="    ";
     } 
+    int numToPrint=this->m_numRecords;
+    if(num>0)numToPrint=num;
     BOOST_LOG_TRIVIAL(trace) << nameList;
     std::string values;
-    for(size_t n=0; n<this->m_numRecords; n++){
+    for(size_t n=0; n<numToPrint; n++){
         values="";
         for(std::vector<FieldBatch*>::size_type i = 0; i != this->m_fields.size(); i++) {
             const ValueVectorBase * v = m_fields[i]->getVector();

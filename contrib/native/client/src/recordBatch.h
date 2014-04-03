@@ -1,16 +1,21 @@
 #ifndef RECORDBATCH_H
 #define RECORDBATCH_H
 
-using namespace exec::user;
-using namespace exec::shared;
+//using namespace exec::shared;
 #include <stdint.h>
 #include <vector>
+#include <assert.h>
+#include <proto-cpp/User.pb.h>
+
+using namespace exec::shared;
+using namespace exec::user;
 
 namespace Drill {
 
     class FieldBatch;
     class ValueVectorBase;
 
+    //TODO: The base classes for value vectors should have abstract functions instead of implementations that return 'NOT IMPLEMENTED YET'
 
     // A Read Only Sliced byte buffer
     class SlicedByteBuf{
@@ -20,7 +25,7 @@ namespace Drill {
                 this->m_buffer=b;
                 this->m_start=offset;
                 this->m_end=offset+length;
-                this->m_capacity=length;
+                this->m_length=length;
             }
 
             // Carve a sliced buffer out of another sliced buffer
@@ -28,7 +33,7 @@ namespace Drill {
                 this->m_buffer=sb.m_buffer;
                 this->m_start=sb.m_start+offset;
                 this->m_end=sb.m_start+offset+length;
-                this->m_capacity=length;
+                this->m_length=length;
             }
 
             //Copy ctor
@@ -37,7 +42,7 @@ namespace Drill {
                     this->m_buffer=other.m_buffer;
                     this->m_start=other.m_start;
                     this->m_end=other.m_end;
-                    this->m_capacity=other.m_capacity;
+                    this->m_length=other.m_length;
                 }
             }
 
@@ -46,7 +51,7 @@ namespace Drill {
                     this->m_buffer=rhs.m_buffer;
                     this->m_start=rhs.m_start;
                     this->m_end=rhs.m_end;
-                    this->m_capacity=rhs.m_capacity;
+                    this->m_length=rhs.m_length;
                 }
                 return *this;
             }
@@ -57,8 +62,8 @@ namespace Drill {
             size_t getEnd(){
                 return this->m_end;
             }
-            size_t getCapacity(){
-                return this->m_capacity;
+            size_t getLength(){
+                return this->m_length;
             }
 
             // ByteBuf_t getBuffer(){ return m_buffer;}
@@ -67,17 +72,21 @@ namespace Drill {
             //TODO: implement accessor functions
             /*  
                 TYPE getTYPE(size_t index){
-                if(index>=m_capacity) return 0;
+                if(index>=m_length) return 0;
                 return (TYPE) m_buffer[offset+index];
                 }
             */
 
             template <typename T> T readAt(uint32_t index) const {
-                if(index + sizeof(T) <= this->m_capacity)
+                if(index + sizeof(T) <= this->m_length)
                     //return *((T*)&(this->m_buffer+this->m_start)[index]);
                     //return *((T*)&(this->m_buffer)[this->m_start+index]);
                     return *((T*)(this->m_buffer+this->m_start+index));
                 return 0;
+            }
+
+            uint8_t getByte(uint8_t index){
+                return readAt<uint8_t>(index);
             }
 
             uint32_t getUint32(uint32_t index){
@@ -92,7 +101,7 @@ namespace Drill {
             ByteBuf_t m_buffer; // the backing store
             size_t  m_start;    //offset within the backing store where this slice begins
             size_t  m_end;      //offset within the backing store where this slice ends
-            size_t  m_capacity; //length
+            size_t  m_length;   //length
     };
 
     class ValueVectorBase{
@@ -114,6 +123,10 @@ namespace Drill {
                 return;
             }
 
+            virtual const ByteBuf_t getRaw(size_t index) const {
+                return (ByteBuf_t)"NOT IMPLEMENTED YET";
+            }
+
             virtual uint32_t getSize(size_t index) const {
                 return 0;
             }
@@ -131,6 +144,10 @@ namespace Drill {
             void getValueAt(size_t index, char* buf, size_t nChars) const {
                 strncpy(buf, "NOT IMPLEMENTED YET", nChars);
                 return;
+            }
+
+            const ByteBuf_t getRaw(size_t index) const {
+                return this->m_pBuffer->getSliceStart()+index*this->getSize(index);
             }
 
             uint32_t getSize(size_t index) const {
@@ -178,12 +195,63 @@ namespace Drill {
             }
     };
 
+    class ValueVectorByte:public ValueVectorFixedWidth{
+        public:
+            ValueVectorByte(SlicedByteBuf *b, size_t rowCount):ValueVectorFixedWidth(b, rowCount){
+            }
+            uint8_t get(size_t index) const {
+                return m_pBuffer->getByte(index*sizeof(uint8_t));
+            }
+            void getValueAt(size_t index, char* buf, size_t nChars) const {
+                char str[64]; // Can't have more than 64 digits of precision
+                //could use itoa instead of sprintf which is slow,  but it is not portable
+                sprintf(str, "%x", this->get(index));
+                strncpy(buf, str, nChars);
+                return;
+            }
+            uint32_t getSize(size_t index) const {
+                return sizeof(uint8_t);
+            }
+    };
+
+    class ValueVectorBit:public ValueVectorFixedWidth{
+        public:
+            ValueVectorBit(SlicedByteBuf *b, size_t rowCount):ValueVectorFixedWidth(b, rowCount){
+            }
+            uint8_t get(size_t index) const {
+#ifdef DEBUG
+                uint8_t b = m_pBuffer->getByte((index)/sizeof(uint8_t));
+                uint8_t bitOffset = index%sizeof(uint8_t);
+                uint8_t setBit = (1<<bitOffset); // sets the Nth bit.
+                uint8_t isSet = (b&setBit);
+#endif
+                return (m_pBuffer->getByte((index)/sizeof(uint8_t))) & (1<< (index%sizeof(uint8_t)) );
+
+            }
+            void getValueAt(size_t index, char* buf, size_t nChars) const {
+                char str[64]; // Can't have more than 64 digits of precision
+                //could use itoa instead of sprintf which is slow,  but it is not portable
+                sprintf(str, "%x", this->get(index));
+                strncpy(buf, str, nChars);
+                return;
+            }
+            uint32_t getSize(size_t index) const {
+                return sizeof(uint64_t);
+            }
+    };
+
+    class VarWidthWrapper{
+        public:
+            ByteBuf_t data;
+            size_t size;
+    };
+
     class ValueVectorVarWidth:public ValueVectorBase{
         public:
             ValueVectorVarWidth(SlicedByteBuf *b, size_t rowCount):ValueVectorBase(b, rowCount){
                 size_t offsetEnd = (rowCount+1)*sizeof(uint32_t);
                 this->m_pOffsetArray= new SlicedByteBuf(*b, 0, offsetEnd);
-                this->m_pData= new SlicedByteBuf(*b, offsetEnd, b->getCapacity());
+                this->m_pData= new SlicedByteBuf(*b, offsetEnd, b->getLength());
             }
             ~ValueVectorVarWidth(){
                 delete this->m_pOffsetArray;
@@ -192,13 +260,28 @@ namespace Drill {
 
             //IMPORTANT: This function allocates memory for the value and passes ownership to the caller. 
             //Caller's responsibility to delete the memory.
-            ByteBuf_t get(size_t index) const {
+            ByteBuf_t getCopy(size_t index) const {
                 size_t startIdx = this->m_pOffsetArray->getUint32(index*sizeof(uint32_t));
                 size_t endIdx = this->m_pOffsetArray->getUint32((index+1)*sizeof(uint32_t));
                 size_t length = endIdx - startIdx;
                 assert(length >= 0);
                 ByteBuf_t dst = new Byte_t[length];
                 memcpy(dst, this->m_pData->getSliceStart()+startIdx, length);
+                return dst;
+            }
+
+            VarWidthWrapper get(size_t index) const {
+                size_t startIdx = this->m_pOffsetArray->getUint32(index*sizeof(uint32_t));
+                size_t endIdx = this->m_pOffsetArray->getUint32((index+1)*sizeof(uint32_t));
+                size_t length = endIdx - startIdx;
+                assert(length >= 0);
+                // Return an object created on the stack. The compiler will return a 
+                // copy and destroy the stack object. The optimizer will hopefully 
+                // elide this so we can return an object with no extra memory allocation
+                // and no copies.(SEE: http://en.wikipedia.org/wiki/Return_value_optimization) 
+                VarWidthWrapper dst;
+                dst.data=this->m_pData->getSliceStart()+startIdx;
+                dst.size=length;
                 return dst;
             }
 
@@ -211,6 +294,14 @@ namespace Drill {
                 copyChars=nChars<=length?nChars:length;
                 memcpy(buf, this->m_pData->getSliceStart()+startIdx, copyChars);
                 return;
+            }
+
+            const ByteBuf_t getRaw(size_t index) const {
+                size_t startIdx = this->m_pOffsetArray->getUint32(index*sizeof(uint32_t));
+                size_t endIdx = this->m_pOffsetArray->getUint32((index+1)*sizeof(uint32_t));
+                size_t length = endIdx - startIdx;
+                assert(length >= 0);
+                return this->m_pData->getSliceStart()+startIdx;
             }
 
             uint32_t getSize(size_t index) const {
@@ -229,8 +320,8 @@ namespace Drill {
         public:
             ValueVectorVarChar(SlicedByteBuf *b, size_t rowCount):ValueVectorVarWidth(b, rowCount){
             }
-            char* get(size_t index) const {
-                return (char*)ValueVectorVarWidth::get(index);
+            VarWidthWrapper get(size_t index) const {
+                return ValueVectorVarWidth::get(index);
             }
     };
 
@@ -278,11 +369,12 @@ namespace Drill {
 
     class RecordBatch{
         public:
-            RecordBatch(const RecordBatchDef& def, size_t nRecords, ByteBuf_t b){
-                m_recordBatchDef=def;
-                m_numRecords=nRecords;
+            RecordBatch(QueryResult* pResult, ByteBuf_t b){
+                m_pQueryResult=pResult;      
+                m_pRecordBatchDef=&pResult->def();
+                m_numRecords=pResult->row_count();
                 m_buffer=b;
-                m_numFields=def.field_size();
+                m_numFields=pResult->def().field_size();
             }
 
             ~RecordBatch(){
@@ -292,13 +384,16 @@ namespace Drill {
                     delete *it;    
                 }
                 m_fields.clear();
-
+                delete m_pQueryResult;
             }
 
             // get the ith field metadata
             const FieldMetadata& getFieldMetadata(size_t index){
-                return this->m_recordBatchDef.field(index);
+                return this->m_pRecordBatchDef->field(index);
             }
+
+            size_t getNumRecords(){ return m_numRecords;}
+            std::vector<FieldBatch*>& getFields(){ return m_fields;}
 
             // 
             // build the record batch: i.e. fill up the value vectors from the buffer.
@@ -315,7 +410,8 @@ namespace Drill {
                 return m_fields[index]->getVector(); 
             }
         private:
-            RecordBatchDef m_recordBatchDef;
+            const QueryResult* m_pQueryResult;
+            const RecordBatchDef* m_pRecordBatchDef;
             ByteBuf_t m_buffer;
             std::vector<FieldBatch*> m_fields;
             size_t m_numFields;

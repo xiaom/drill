@@ -1,7 +1,13 @@
 #ifndef RPC_MESSAGE_H
 #define RPC_MESSAGE_H
-#include "common.h"
+
+#include <ostream>
 #include <google/protobuf/message_lite.h>
+//#include "common.h"
+#include "proto-cpp/GeneralRPC.pb.h"
+
+using std::ostream;
+using exec::rpc::RpcMode;
 
 namespace Drill {
 

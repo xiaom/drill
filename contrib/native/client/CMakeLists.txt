@@ -26,13 +26,23 @@ link_directories(/usr/local/lib)
 message("PROTOBUF_INCLUDE_DIR = " ${PROTOBUF_INCLUDE_DIR})
 message("PROTOBUF_LIBRARY = " ${PROTOBUF_LIBRARY})
 
+include_directories("${CMAKE_SOURCE_DIR}/src/clientlib")
+add_subdirectory("${CMAKE_SOURCE_DIR}/src/clientlib") 
+
 include_directories(${CMAKE_SOURCE_DIR}/src)
 file(GLOB ProtoCpp src/proto-cpp/*.cc)
-file(GLOB DrillClientCpp src/*.cc)
+file(GLOB DrillClientCpp src/drill-client.cc src/rpc-encoder.cc src/rpc-decoder.cc src/rpc-message.cc src/drill-client-async.cc)
+file(GLOB AsyncDrillClientCpp src/drill-client-async.cc src/rpc-encoder.cc src/rpc-decoder.cc src/rpc-message.cc src/recordBatch.cc)
+
+#add a DEBUG preprocessor macro
+set_property(
+    DIRECTORY
+    PROPERTY COMPILE_DEFINITIONS_DEBUG DEBUG DEBUG=1
+    )
 
 message("ProtoCpp = " ${ProtoCpp})
 message("DrillClientCpp = " ${DrillClientCpp})
-add_executable(async-client example/async-client.cc ${DrillClientCpp} ${ProtoCpp}) 
+add_executable(async-client example/async-client.cc ${AsyncDrillClientCpp} ${ProtoCpp}) 
 add_executable(client example/client.cc ${DrillClientCpp} ${ProtoCpp}) 
-target_link_libraries(async-client ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY})
+target_link_libraries(async-client ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} drillClient)
 target_link_libraries(client ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY})
