@@ -1,12 +1,12 @@
 #ifndef DRILL_CLIENT_H
 #define DRILL_CLIENT_H
 
+#include <vector>
 #include "common.h"
 #include "../proto-cpp/User.pb.h"
 
 using namespace std;
 using namespace exec::shared;
-class  std::vector;
 
 #ifdef WIN32
 #ifdef DRILL_CLIENT_EXPORTS

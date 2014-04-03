@@ -1,6 +1,7 @@
 #ifndef DRILL_CLIENT_ASYNC_H
 #define DRILL_CLIENT_ASYNC_H
 
+#include <vector>
 #include <queue>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
@@ -16,9 +17,6 @@ using namespace boost;
 using namespace exec::shared;
 using namespace exec::user;
 namespace asio = boost::asio;
-
-class std::vector;
-class std::queue;
 
 namespace Drill {
 
