@@ -1,63 +1,38 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <stdint.h>
 #include <string>
-#include <cassert>
 #include <vector>
-#include <cstdio>
-#include <iostream>
-#include <fstream>
-#include <cstring>
 
-#include <boost/cstdint.hpp>
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-#include <boost/thread.hpp>
-#include <boost/log/trivial.hpp>
-#include <google/protobuf/message_lite.h>
-#include <google/protobuf/wire_format_lite.h>
+#define LENGTH_PREFIX_MAX_LENGTH 5
+#define LEN_PREFIX_BUFLEN LENGTH_PREFIX_MAX_LENGTH
 
-#include "proto-cpp/GeneralRPC.pb.h"
-#include "proto-cpp/SchemaDef.pb.h"
-#include "proto-cpp/UserBitShared.pb.h"
-#include "proto-cpp/User.pb.h"
-#include "proto-cpp/ExecutionProtos.pb.h"
-
-typedef std::vector<boost::uint8_t> DataBuf;
-
-using std::cout;
-using std::cerr;
-using std::endl;
 using std::string;
-using std::ifstream;
-using std::ostream;
-using std::memmove;
-using exec::rpc::RpcMode;
-//using boost::log;
+using std::vector;
 
-namespace asio = boost::asio;
+typedef vector<uint8_t> DataBuf;
 
-typedef void MQueryResult; // TODO expand later
-typedef void QueryResultHandle;
+
+//typedef void MQueryResult; // TODO expand later
+//typedef void QueryResultHandle;
 
 #ifdef _DEBUG
     #define EXTRA_DEBUGGING
     #define CODER_DEBUGGING 
 #endif
 
-#define LENGTH_PREFIX_MAX_LENGTH 5
-#define LEN_PREFIX_BUFLEN LENGTH_PREFIX_MAX_LENGTH+11
-
 namespace Drill {
 
-typedef boost::uint8_t Byte_t;
+typedef uint8_t Byte_t;
 typedef Byte_t * ByteBuf_t;
 
-struct UserServerEndPoint {
+struct UserServerEndPoint{
     string m_addr;
     int m_port;
     UserServerEndPoint(string addr, int port):m_addr(addr),m_port(port) { }
 };
+
 } // namespace Drill
 #endif
 
