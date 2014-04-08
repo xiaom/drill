@@ -53,6 +53,7 @@ using namespace Drill;
 
 status_t QueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err){
     b->print(10); // print at most 10 rows per batch
+    delete b; // we're done with this batch, we an delete it
     return QRY_SUCCESS ;
 }
 
@@ -108,14 +109,14 @@ int main(int argc, char* argv[]) {
 
         string drill_addr = "127.0.0.1";
         int port=31010;
-        string plan_filename = "/Users/mx/drill-workspace/incubator-drill/contrib/native/client/resources/parquet_scan_union_screen_physical.json";
+        string plan_filename = "test1.json";
         string queryType="sync";
         string apiType="usepublicapi";
 
         //string s;
         //std::cin >> s ;
 
-        if (argc !=1 && argc != 4 && argc !=5 && argc!=6) {
+        if (argc !=1 && argc < 4) {
             std::cout << "Usage: async_client <server> <port> <plan> <sync|async> <usepublicapi|useinternalapi> \n";
             std::cout << "Example:\n";
             std::cout << "  async_client 127.0.0.1 31010 ../resources/parquet_scan_union_screen_physical.json\n";
@@ -148,19 +149,25 @@ int main(int argc, char* argv[]) {
             ifstream f(plan_filename);
             string plan((std::istreambuf_iterator<char>(f)), (std::istreambuf_iterator<char>()));
             cerr << "plan = " << plan << endl;
+            DrillClientQueryResult* pClientQuery = NULL;
 
             if(queryType=="sync"){
-                DrillClientQueryResult* pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, NULL);
+                pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, NULL);
                 RecordBatch* pR=NULL;
                 while((pR=pClientQuery->getNext())!=NULL){
                     pR->print(2);
                     delete pR;
                 }
+                client.waitForResults();
             }else{
-                DrillClientQueryResult* pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, QueryResultsListener);
+                pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, QueryResultsListener);
                 client.waitForResults();
             }
             client.Close();
+            // It is not okay to delete pClientQuery until the query thread is done. waitForResults guarantees that 
+            // the thread is done. In the sync case, the getNext call blocks and the thread essentially exits after the last
+            // call to getNext, but it is still possible for the thread to be around when we delete pClientQuery.
+            delete pClientQuery;
         }else{
             DrillClient client;
             client.connect(user_server);
@@ -170,13 +177,13 @@ int main(int argc, char* argv[]) {
             cerr << "plan = " << plan << endl;
 
             if(queryType=="sync"){
-                DrillClientError* err;
+                DrillClientError* err=NULL;
                 status_t ret;
                 RecordIterator* pIter = client.submitQuery(exec::user::PHYSICAL, plan, err);
                 size_t row=0;
                 if(pIter){
                     // get fields.
-                    std::vector<const FieldMetadata*> fields = pIter->getColDefs();
+                    std::vector<FieldMetadata*> fields = pIter->getColDefs();
                     while((ret=pIter->next())==QRY_SUCCESS){
                         row++;
                         if(row%4095==0){
@@ -194,9 +201,13 @@ int main(int argc, char* argv[]) {
                         printf("\n");
                     }
                 }
+                //delete pIter;
+                client.freeQueryIterator(&pIter);
             }else{
-                client.submitQuery(exec::user::PHYSICAL, plan, QueryResultsListener);
+                QueryHandle_t qryHandle=NULL;
+                client.submitQuery(exec::user::PHYSICAL, plan, QueryResultsListener, &qryHandle);
                 client.waitForResults();
+                client.freeQueryResources(&qryHandle);
             }
             client.close();
         }
