@@ -71,6 +71,9 @@ bool DrillClientImpl::ValidateHandShake(){
     return true;
 }
 
+
+vector<const FieldMetadata*> DrillClientQueryResult::s_emptyColDefs;
+
 DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& plan, pfnQueryResultsListener l){
     BOOST_LOG_TRIVIAL(trace) << "plan = " << plan;
     RunQuery query;
@@ -95,7 +98,7 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& 
     
     //Get Result
     DrillClientQueryResult* pQuery = new DrillClientQueryResult(this);
-    this->m_queryResults.push_back(pQuery);
+    //this->m_queryResults.push_back(pQuery);
     pQuery->registerListener(l);
     pQuery->getResult();
     //run this in a new thread
@@ -106,8 +109,8 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& 
 }
 
 void DrillClientImpl::waitForResults(){
-        this->m_pListenerThread->join();
-        this->m_pListenerThread=NULL;
+    this->m_pListenerThread->join();
+    delete this->m_pListenerThread; this->m_pListenerThread=NULL;
 }
 
 void DrillClientQueryResult::getResult(){
@@ -156,6 +159,7 @@ void DrillClientQueryResult::handleReadLength(const boost::system::error_code & 
                        );
         }
     }else{
+        this->m_bIsQueryPending=false;
         BOOST_LOG_TRIVIAL(trace) << "handle read length error: " << err << "\n";
     }
 }
@@ -181,24 +185,29 @@ void DrillClientQueryResult::handleReadMsg(const boost::system::error_code & err
             
             //Build Record Batch here 
             //RecordBatch* pRecordBatch= new RecordBatch(qr.def(), qr.row_count(), msg.m_dbody);
-            setupColumnDefs(qr);
+            status_t r=setupColumnDefs(qr);
             RecordBatch* pRecordBatch= new RecordBatch(qr, msg.m_dbody);
             pRecordBatch->build();
+            if(r==QRY_SUCCESS_WITH_INFO){
+                pRecordBatch->schemaChanged(true);
+            }
             this->m_bIsQueryPending=true;
             this->m_bIsLastChunk=qr->is_last_chunk();
             status_t ret;
             if(this->m_pResultsListener!=NULL){
                 ret = m_pResultsListener(this, pRecordBatch, NULL);
-                //TODO: To free memory for the buffer requires the app to call 
-                //destructor on the record batch pointer.
             }else{
-                //Provide a default callback that is called when a record batch is received
+                //Use a default callback that is called when a record batch is received
                 ret = this->defaultQueryResultsListener(this, pRecordBatch, NULL);
             }
             //TODO: check the return value and do not continue if the 
             //client app returns FAILURE
+            if(ret==QRY_FAILURE){
+                sendCancel(msg);
+                return;
+            }
             
-            if(qr->is_last_chunk()){
+            if(this->m_bIsLastChunk){
                 BOOST_LOG_TRIVIAL(trace) << "Received last batch.";
                 return;
             }
@@ -208,38 +217,91 @@ void DrillClientQueryResult::handleReadMsg(const boost::system::error_code & err
             BOOST_LOG_TRIVIAL(trace) << "QueryResult returned " << msg.m_rpc_type;
             return;
         }
-        exec::rpc::Ack ack;
-        ack.set_ok(true);
-        OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, ACK, msg.m_coord_id, &ack);
-        m_pClient->sendSync(ack_msg);
-        BOOST_LOG_TRIVIAL(trace) << "ACK sent" << endl;
+        sendAck(msg);
         getNextRecordBatch();
     }else{
+        this->m_bIsQueryPending=false;
         BOOST_LOG_TRIVIAL(trace) << "Error: " << err << "\n";
     }
     return;
 }
 
-void DrillClientQueryResult::setupColumnDefs(QueryResult* pQueryResult) {
-    //TODO: this method needs to be thread safe along with getColumnDefs()
+void DrillClientQueryResult::sendAck(InBoundRpcMessage& msg){
+    exec::rpc::Ack ack;
+    ack.set_ok(true);
+    OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, ACK, msg.m_coord_id, &ack);
+    m_pClient->sendSync(ack_msg);
+    BOOST_LOG_TRIVIAL(trace) << "ACK sent" << endl;
+}
+
+void DrillClientQueryResult::sendCancel(InBoundRpcMessage& msg){
+    exec::rpc::Ack ack;
+    ack.set_ok(true);
+    OutBoundRpcMessage ack_msg(exec::rpc::RESPONSE, CANCEL_QUERY, msg.m_coord_id, &ack);
+    m_pClient->sendSync(ack_msg);
+    BOOST_LOG_TRIVIAL(trace) << "CANCEL sent" << endl;
+}
+
+// This COPIES the FieldMetadata definition for the record batch.  ColumnDefs held by this 
+// class are used by the async callbacks.
+status_t DrillClientQueryResult::setupColumnDefs(QueryResult* pQueryResult) {
     bool hasSchemaChanged=false;
-    if(this->m_columnDefs.empty()){
-        //std::vector<const FieldMetadata*> fmds = this->m_columnDefs; // keep a copy
-        //this->m_columnDefs.clear();
-        size_t numFields=pQueryResult->def().field_size();
-        for(size_t i=0; i<numFields; i++){
-            const FieldMetadata* fmd=&pQueryResult->def().field(i);
-            this->m_columnDefs.push_back(fmd);
+    boost::lock_guard<boost::mutex> bufferLock(this->m_schemaMutex);
+
+    std::vector<FieldMetadata*> prevSchema=this->m_columnDefs;
+    std::map<string, FieldMetadata*> oldSchema;
+    for(std::vector<FieldMetadata*>::iterator it = prevSchema.begin(); it != prevSchema.end(); ++it){
+        // the key is the field_name + type
+        char type[256];
+        sprintf(type, ":%d:%d",(*it)->def().major_type().minor_type(), (*it)->def().major_type().mode() );
+        std::string k= (*it)->def().name(0).name()+type;
+        oldSchema[k]=*it;
+    }
+
+    m_columnDefs.clear();
+    size_t numFields=pQueryResult->def().field_size();
+    for(size_t i=0; i<numFields; i++){
+        FieldMetadata* fmd= new FieldMetadata();
+        fmd->CopyFrom(pQueryResult->def().field(i));
+        this->m_columnDefs.push_back(fmd);
+
+        // Look for field in oldSchema. If found remove it. If not trigger schema change.
+        char type[256];
+        sprintf(type, ":%d:%d",fmd->def().major_type().minor_type(), fmd->def().major_type().mode() );
+        std::string k= fmd->def().name(0).name()+type;
+        std::map<string, FieldMetadata*>::iterator iter=oldSchema.find(k);
+        if(iter==oldSchema.end()){
+            // not found
+            hasSchemaChanged=true;
+        }else{
+            oldSchema.erase(iter);
         }
     }
-    ////TODO:Look for changes in the vector and trigger a Schema change event if necessary
-    return;
+    if(oldSchema.size()>0){
+        hasSchemaChanged=true;
+    }
+    //TODO:Look for changes in the vector and trigger a Schema change event if necessary. 
+    //If vectors are different, then call the schema change listener.
+    
+    //free memory allocated for FieldMetadata objects saved in previous columnDefs;
+    for(std::vector<FieldMetadata*>::iterator it = prevSchema.begin(); it != prevSchema.end(); ++it){
+        delete *it;    
+    }
+    prevSchema.clear();
+    this->m_bHasSchemaChanged=hasSchemaChanged;
+    if(hasSchemaChanged){
+        //TODO: invoke schema change Listener
+    }
+    return hasSchemaChanged?QRY_SUCCESS_WITH_INFO:QRY_SUCCESS;
 }
 
 status_t DrillClientQueryResult::defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err) {
     //ctx; // unused, we already have the this pointer
-    //TODO: check if the query has been canceled. IF so then return FAILURE. Caller will send cancel to the server.
     BOOST_LOG_TRIVIAL(trace) << "Query result listener called" << endl;
+    //check if the query has been canceled. IF so then return FAILURE. Caller will send cancel to the server.
+    if(this->m_bCancel){
+        return QRY_FAILURE;
+    }
     if (!err) {
         // signal the cond var
         {
@@ -254,6 +316,20 @@ status_t DrillClientQueryResult::defaultQueryResultsListener(void* ctx, RecordBa
         return QRY_FAILURE;
     }
     return QRY_SUCCESS;
+}
+
+RecordBatch*  DrillClientQueryResult::peekNext() {
+    RecordBatch* pRecordBatch=NULL;
+    //if no more data, return NULL;
+    if(!m_bIsQueryPending) return NULL;
+    boost::unique_lock<boost::mutex> bufferLock(this->m_cvMutex);
+    BOOST_LOG_TRIVIAL(trace) << "Synchronous read waiting for data." << endl;
+    while(!this->m_bHasData) {
+        this->m_cv.wait(bufferLock);
+    }
+    // READ but not remove first element from queue
+    pRecordBatch = this->m_recordBatches.front();
+    return pRecordBatch;
 }
 
 RecordBatch*  DrillClientQueryResult::getNext() {
@@ -285,3 +361,17 @@ void DrillClientQueryResult::waitForData() {
     }
 }
 
+void DrillClientQueryResult::cancel() {
+    this->m_bCancel=true;
+}
+
+
+void DrillClientQueryResult::clearAndDestroy(){
+    //free memory allocated for FieldMetadata objects saved in m_columnDefs;
+    for(std::vector<FieldMetadata*>::iterator it = m_columnDefs.begin(); it != m_columnDefs.end(); ++it){
+        delete *it;    
+    }
+    m_columnDefs.clear();
+    //TODO: Free any record batches or buffers remaining
+    //TODO: Cancel any pending requests
+}

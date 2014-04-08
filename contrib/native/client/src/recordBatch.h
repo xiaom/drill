@@ -375,6 +375,7 @@ namespace Drill {
                 m_numRecords=pResult->row_count();
                 m_buffer=b;
                 m_numFields=pResult->def().field_size();
+                m_bHasSchemaChanged=false;
             }
 
             ~RecordBatch(){
@@ -384,6 +385,13 @@ namespace Drill {
                     delete *it;    
                 }
                 m_fields.clear();
+                // we don't free memory for FieldMetadata objects saved in m_fieldDefs since the memory is 
+                // owned by the QueryResult object; (see the build() function). Note that the vector contains 
+                // a const FieldMetadata* anyway, so it cannot be deleted.
+                //for(std::vector<FieldMetadata*>::iterator it = m_fieldDefs.begin(); it != m_fieldDefs.end(); ++it){
+                //    delete *it;    
+                //}
+                m_fieldDefs.clear();
                 delete m_pQueryResult;
             }
 
@@ -394,6 +402,8 @@ namespace Drill {
 
             size_t getNumRecords(){ return m_numRecords;}
             std::vector<FieldBatch*>& getFields(){ return m_fields;}
+
+            std::vector<const FieldMetadata*>& getColumnDefs(){ return m_fieldDefs;}
 
             // 
             // build the record batch: i.e. fill up the value vectors from the buffer.
@@ -409,14 +419,22 @@ namespace Drill {
             const ValueVectorBase * getVector(size_t index){
                 return m_fields[index]->getVector(); 
             }
+
+            void schemaChanged(bool b){
+                this->m_bHasSchemaChanged=b;
+            }
+
+            bool hasSchemaChanged(){ return m_bHasSchemaChanged;}
         private:
             const QueryResult* m_pQueryResult;
             const RecordBatchDef* m_pRecordBatchDef;
             ByteBuf_t m_buffer;
+            //build the current schema out of the field metadata
+            std::vector<const FieldMetadata*> m_fieldDefs;
             std::vector<FieldBatch*> m_fields;
             size_t m_numFields;
             size_t m_numRecords;
-            //TODO: build the current schema out of the field metadata
+            bool m_bHasSchemaChanged;
 
     }; // RecordBatch
 

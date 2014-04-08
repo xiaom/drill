@@ -39,6 +39,8 @@ namespace Drill {
                 m_bHasData(false),
                 m_bIsQueryPending(true),
                 m_bIsLastChunk(false),
+                m_bCancel(false),
+                m_bHasSchemaChanged(false),
                 m_pResultsListener(NULL)
             {};
 
@@ -53,12 +55,27 @@ namespace Drill {
                 this->m_pResultsListener=listener;
             }
 
-            // Synchronous call to get data
+            // Synchronous call to get data. Caller assumes ownership of the recod batch 
+            // returned and it is assumed to have been consumed.
             RecordBatch*  getNext();
+            // Synchronous call to get a look at the next Record Batch. This 
+            // call does not move the current pointer forward. Repeatied calls 
+            // to peekNext return the same value until getNext is called.
+            RecordBatch*  peekNext();
             // Blocks until data is available.
             void waitForData();
 
-            std::vector<const FieldMetadata*>& getColumnDefs(){ return this->m_columnDefs;}
+            // placeholder to return an empty col def vector when calls are made out of order.
+            static std::vector<const FieldMetadata*> s_emptyColDefs;
+
+            std::vector<FieldMetadata*>& getColumnDefs(){ 
+                boost::lock_guard<boost::mutex> bufferLock(this->m_schemaMutex);
+                return this->m_columnDefs;
+            }
+
+            void cancel();    
+            bool isCancelled(){return this->m_bCancel;};
+            bool hasSchemaChanged(){return this->m_bHasSchemaChanged;};
 
         private:
 
@@ -68,7 +85,7 @@ namespace Drill {
             // Each data buffer is decoded into a RecordBatch
             std::vector<ByteBuf_t> m_dataBuffers;
             std::queue<RecordBatch*> m_recordBatches;
-            std::vector<const FieldMetadata*> m_columnDefs;
+            std::vector<FieldMetadata*> m_columnDefs;
 
             //length ofthe current data msg being received
             uint32_t m_rmsgLen;
@@ -78,6 +95,8 @@ namespace Drill {
 
             // Mutex to protect read buffer. Is this needed???
             boost::mutex m_bufferMutex; 
+            // Mutex to protect schema definitions
+            boost::mutex m_schemaMutex; 
             // Mutex for Cond variable for read write to batch vector
             boost::mutex m_cvMutex; 
             // Condition variable to signal arrival of more data. Condition variable is signaled 
@@ -89,6 +108,10 @@ namespace Drill {
             bool m_bIsQueryPending;
 
             bool m_bIsLastChunk;
+            
+            bool m_bCancel;
+
+            bool m_bHasSchemaChanged;
 
             // Results callback
             pfnQueryResultsListener m_pResultsListener;
@@ -107,15 +130,14 @@ namespace Drill {
             // get the length of the data being sent and start an async read to read that data
             void handleReadLength(const boost::system::error_code & err, size_t bytes_transferred) ;
             void handleReadMsg(const boost::system::error_code & err, size_t bytes_transferred) ;
-            void setupColumnDefs(QueryResult* pQueryResult);
+            status_t setupColumnDefs(QueryResult* pQueryResult);
 
 
             status_t defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err);
+            void sendAck(InBoundRpcMessage& msg);
+            void sendCancel(InBoundRpcMessage& msg);
 
-            void clearAndDestroy(){
-                //TODO: Free any record batches or buffers remaining
-                //TODO: Cancel any pending requests
-            }
+            void clearAndDestroy();
     };
 
     class DrillClientImpl {
@@ -172,7 +194,7 @@ namespace Drill {
         RpcEncoder m_encoder;
         RpcDecoder m_decoder;
 
-        std::vector<DrillClientQueryResult*> m_queryResults;
+        //std::vector<DrillClientQueryResult*> m_queryResults;
 
     };
 

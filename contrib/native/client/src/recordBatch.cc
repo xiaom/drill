@@ -255,9 +255,7 @@ int RecordBatch::build(){
         startOffset+=len;
         pField->load(); // set up the value vectors
         this->m_fields.push_back(pField);
-        //also save Field definitions in a Field Metadata vector.
-        //Look for Field in the vector. If not, add it and trigger a Schema change event
-        //
+        this->m_fieldDefs.push_back(&fmd);
     }
     return 0;
 }
