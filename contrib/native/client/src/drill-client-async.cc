@@ -79,7 +79,7 @@ bool DrillClientImpl::ValidateHandShake(){
 
 vector<const FieldMetadata*> DrillClientQueryResult::s_emptyColDefs;
 
-DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& plan, pfnQueryResultsListener l){
+DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& plan, pfnQueryResultsListener l, void* lCtx){
     //BOOST_LOG_TRIVIAL(trace) << "plan = " << plan;
     RunQuery query;
     query.set_results_mode(STREAM_FULL);
@@ -98,7 +98,7 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& 
 
     DrillClientQueryResult* pQuery=NULL;
     pQuery = new DrillClientQueryResult(this, coordId);
-    pQuery->registerListener(l);
+    pQuery->registerListener(l, lCtx);
     this->m_queryIds[coordId]=pQuery;
 
     BOOST_LOG_TRIVIAL(trace)  << "Submit Query Request. Coordination id = " << coordId;
@@ -210,7 +210,7 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf, const boost::system::error_code
                 } // read data successfully
             }
         }
-          
+
         if(!error && msg.m_rpc_type==QUERY_RESULT){
             {
             boost::unique_lock<boost::mutex> bufferLock(m_bufferMutex);
@@ -250,7 +250,7 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf, const boost::system::error_code
                 //TODO: return QRY_ERROR;
             }
             BOOST_LOG_TRIVIAL(trace) << "Drill Client Query Result - " << pDrillClientQueryResult << endl;
-              
+
             pDrillClientQueryResult->m_bIsQueryPending=true;
             pDrillClientQueryResult->m_bIsLastChunk=qr->is_last_chunk();
             status_t ret;
@@ -483,7 +483,8 @@ status_t DrillClientQueryResult::setupColumnDefs(QueryResult* pQueryResult) {
     return hasSchemaChanged?QRY_SUCCESS_WITH_INFO:QRY_SUCCESS;
 }
 
-status_t DrillClientQueryResult::defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err) {
+status_t DrillClientQueryResult::defaultQueryResultsListener(DrillClientQueryResult* ctx,  RecordBatch* b, DrillClientError* err) {
+    // TODO the design of query result listener need to be simplified
     //ctx; // unused, we already have the this pointer
     BOOST_LOG_TRIVIAL(trace) << "Query result listener called" << endl;
     //check if the query has been canceled. IF so then return FAILURE. Caller will send cancel to the server.

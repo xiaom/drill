@@ -45,7 +45,8 @@ namespace Drill {
                 m_bCancel(false),
                 m_bHasSchemaChanged(false), 
                 m_pQueryId(NULL) ,
-                m_pResultsListener(NULL)
+                m_pResultsListener(NULL),
+                m_pListenerCtx(NULL)
             {};
 
             ~DrillClientQueryResult(){
@@ -55,8 +56,9 @@ namespace Drill {
             //void getResult();
 
             // get data asynchronously
-            void registerListener(pfnQueryResultsListener listener){
+            void registerListener(pfnQueryResultsListener listener, void* listenerCtx){
                 this->m_pResultsListener=listener;
+				this->m_pListenerCtx = listenerCtx;
             }
 
             // Synchronous call to get data. Caller assumes ownership of the recod batch 
@@ -88,6 +90,8 @@ namespace Drill {
             //void setQueryPending(bool val){ this->m_bIsQueryPending=val;}
             //pfnQueryResultsListener getQueryResultsListener(){ return this->m_pResultsListener;}
 
+			void setQueryId(const exec::shared::QueryId& qid) { this->m_queryId = qid; }
+			exec::shared::QueryId getQueryId(){ return this->m_queryId; }
         private:
 
             DrillClientImpl* m_pClient;
@@ -121,15 +125,21 @@ namespace Drill {
             bool m_bIsQueryPending;
 
             bool m_bIsLastChunk;
-            
+
             bool m_bCancel;
 
             bool m_bHasSchemaChanged;
 
             QueryId* m_pQueryId;
 
+			// Query id of the  result set
+			exec::shared::QueryId m_queryId;
+
             // Results callback
             pfnQueryResultsListener m_pResultsListener;
+
+            // Listener context
+            void * m_pListenerCtx;
 
             //void getNextRecordBatch();
             // get the length of the data being sent and start an async read to read that data
@@ -139,7 +149,8 @@ namespace Drill {
             void sendAck(InBoundRpcMessage& msg);
             void sendCancel(InBoundRpcMessage& msg);
 
-            status_t defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err);
+
+            status_t defaultQueryResultsListener(DrillClientQueryResult* qurey_results, RecordBatch* b, DrillClientError* err);
 
             void clearAndDestroy();
     };
@@ -175,7 +186,7 @@ namespace Drill {
         void Close() ;
         bool ValidateHandShake(); // throw expection if not valid
 
-        DrillClientQueryResult* SubmitQuery(exec::user::QueryType t, const string& plan, pfnQueryResultsListener listener);
+        DrillClientQueryResult* SubmitQuery(exec::user::QueryType t, const string& plan, pfnQueryResultsListener listener, void* listenerCtx);
         void waitForResults();
 
         private:
@@ -216,7 +227,7 @@ namespace Drill {
             bool operator()(const QueryId* q1, const QueryId* q2) const {
                 return q1->part1()<q2->part1() && q1->part2() < q2->part2();
             }
-        };
+    };
         //static bool compareQueryId(const QueryId* q1, const QueryId* q2){
         //    return q1->part1<q2->part1 && q1->part2 < q2->part2;
         //}

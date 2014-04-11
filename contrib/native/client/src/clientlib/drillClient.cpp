@@ -21,7 +21,7 @@ RecordIterator::~RecordIterator(){
 vector<FieldMetadata*>&  RecordIterator::getColDefs(){
     //NOTE: if query is cancelled, return whatever you have. Client applications job to deal with it.
     if(this->m_pColDefs==NULL){
-        this->m_pQueryResult->waitForData();
+    this->m_pQueryResult->waitForData();
         std::vector<FieldMetadata*>* pColDefs = new std::vector<FieldMetadata*>;
         {   //lock after we come out of the  wait.
             boost::lock_guard<boost::mutex> bufferLock(this->m_recordBatchMutex);
@@ -64,11 +64,11 @@ status_t RecordIterator::next(){
                 ret = QRY_NO_MORE_DATA;
             }
             if(this->m_pCurrentRecordBatch->hasSchemaChanged()){
-                ret-QRY_SUCCESS_WITH_INFO;
+                ret = QRY_SUCCESS_WITH_INFO;
             }
         }
     }else{
-        ret=QRY_CANCEL;
+        ret = QRY_CANCEL;
     }
     return ret;
 }
@@ -79,12 +79,12 @@ status_t RecordIterator::getCol(size_t i, void** b, size_t* sz){
     //if(i>=getColDefs().size()) return QRY_OUT_OF_BOUNDS;
     //return raw byte buffer
     if(!this->m_pQueryResult->isCancelled()){
-        *b=this->m_pCurrentRecordBatch->getFields()[i]->getVector()->getRaw(this->m_currentRecord);
-        *sz=this->m_pCurrentRecordBatch->getFields()[i]->getVector()->getSize(this->m_currentRecord);
-        return QRY_SUCCESS;
+    *b=this->m_pCurrentRecordBatch->getFields()[i]->getVector()->getRaw(this->m_currentRecord);
+    *sz=this->m_pCurrentRecordBatch->getFields()[i]->getVector()->getSize(this->m_currentRecord);
+    return QRY_SUCCESS;
     }else{
         return QRY_CANCEL;
-    }
+}
 }
 
 status_t RecordIterator::cancel(){
@@ -123,9 +123,9 @@ void DrillClient::close() {
     this->m_pImpl->Close();
 }
 
-status_t DrillClient::submitQuery(exec::user::QueryType t, const string& plan, pfnQueryResultsListener listener, QueryHandle_t* qHandle){
+status_t DrillClient::submitQuery(exec::user::QueryType t, const string& plan, pfnQueryResultsListener listener, void* listenerCtx, QueryHandle_t* qHandle){
     //TODO: Handle query execution errors
-    DrillClientQueryResult* pResult=this->m_pImpl->SubmitQuery(t, plan, listener);
+    DrillClientQueryResult* pResult=this->m_pImpl->SubmitQuery(t, plan, listener, listenerCtx);
     *qHandle=(QueryHandle_t)pResult;
     return QRY_SUCCESS; 
 }
@@ -133,7 +133,7 @@ status_t DrillClient::submitQuery(exec::user::QueryType t, const string& plan, p
 RecordIterator* DrillClient::submitQuery(exec::user::QueryType t, const string& plan, DrillClientError* err){
     //TODO: Handle query execution errors
     RecordIterator* pIter=NULL;
-    DrillClientQueryResult* pResult=this->m_pImpl->SubmitQuery(t, plan, NULL);
+    DrillClientQueryResult* pResult=this->m_pImpl->SubmitQuery(t, plan, NULL, NULL);
     if(pResult){
         pIter=new RecordIterator(pResult);
     }
