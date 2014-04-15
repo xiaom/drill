@@ -110,29 +110,29 @@ int main(int argc, char* argv[]) {
         string drill_addr = "127.0.0.1";
         int port=31010;
         string plan_filename = "test1.json";
+        //string plan2_filename = "test2.json";
+        string plan2_filename;
         string queryType="sync";
         string apiType="usepublicapi";
 
         //string s;
         //std::cin >> s ;
 
-        if (argc !=1 && argc < 4) {
-            std::cout << "Usage: async_client <server> <port> <plan> <sync|async> <usepublicapi|useinternalapi> \n";
+        if (argc < 4) {
+            std::cout << "Usage: async_client <server> <port> <sync|async> <usepublicapi|useinternalapi> <plan> [<plan2>] \n";
             std::cout << "Example:\n";
-            std::cout << "  async_client 127.0.0.1 31010 ../resources/parquet_scan_union_screen_physical.json\n";
+            std::cout << "  async_client 127.0.0.1 31010 async usepublicapi  ../resources/parquet_scan_union_screen_physical.json\n";
             return 1;
         }
 
-        if (argc >= 4) {
+        if (argc >= 6) {
             drill_addr = argv[1];
             port = atoi(argv[2]);
-            plan_filename = argv[3];
-            if (argc == 5) {
-                queryType=argv[4];
-            }
-            if (argc == 6) {
-                queryType=argv[4];
-                apiType=argv[5];
+            queryType=argv[3];
+            apiType=argv[4];
+            plan_filename = argv[5];
+            if(argc==7){
+                plan2_filename = argv[5];
             }
         }
 
@@ -149,8 +149,12 @@ int main(int argc, char* argv[]) {
             ifstream f(plan_filename);
             string plan((std::istreambuf_iterator<char>(f)), (std::istreambuf_iterator<char>()));
             cerr << "plan = " << plan << endl;
-            DrillClientQueryResult* pClientQuery = NULL;
+            ifstream f2(plan2_filename);
+            string plan2((std::istreambuf_iterator<char>(f2)), (std::istreambuf_iterator<char>()));
+            cerr << "plan2 = " << plan2 << endl;
 
+            DrillClientQueryResult* pClientQuery = NULL;
+            DrillClientQueryResult* pClientQuery2 = NULL;
             if(queryType=="sync"){
                 pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, NULL);
                 RecordBatch* pR=NULL;
@@ -161,12 +165,15 @@ int main(int argc, char* argv[]) {
                 client.waitForResults();
             }else{
                 pClientQuery = client.SubmitQuery(exec::user::PHYSICAL, plan, QueryResultsListener);
+                if(!plan2_filename.empty()){
+                    pClientQuery2 = client.SubmitQuery(exec::user::PHYSICAL, plan2, QueryResultsListener);
+                }
                 client.waitForResults();
             }
             client.Close();
             // It is not okay to delete pClientQuery until the query thread is done. waitForResults guarantees that 
             // the thread is done. In the sync case, the getNext call blocks and the thread essentially exits after the last
-            // call to getNext, but it is still possible for the thread to be around when we delete pClientQuery.
+            // call to getNext, but it is still possible for the thread to be still around when we delete pClientQuery.
             delete pClientQuery;
         }else{
             DrillClient client;

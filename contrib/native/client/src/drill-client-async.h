@@ -7,6 +7,7 @@
 #include <boost/thread.hpp>
 
 #include "proto-cpp/User.pb.h"
+#include "proto-cpp/UserBitShared.pb.h"
 #include "common.h"
 #include "rpc-encoder.h"
 #include "rpc-decoder.h"
@@ -31,16 +32,19 @@ namespace Drill {
     struct UserServerEndPoint;
 
     class DrillClientQueryResult{
+        friend class DrillClientImpl;
         public:
-            DrillClientQueryResult(DrillClientImpl * pClient):
+            DrillClientQueryResult(DrillClientImpl * pClient, int coordId):
                 m_pClient(pClient),
-                m_rmsgLen(0),
-                m_currentBuffer(NULL),
+                m_coordinationId(coordId),
+                //m_rmsgLen(0),
+                //m_currentBuffer(NULL),
                 m_bHasData(false),
                 m_bIsQueryPending(true),
                 m_bIsLastChunk(false),
                 m_bCancel(false),
-                m_bHasSchemaChanged(false),
+                m_bHasSchemaChanged(false), 
+                m_pQueryId(NULL) ,
                 m_pResultsListener(NULL)
             {};
 
@@ -48,7 +52,7 @@ namespace Drill {
                 this->clearAndDestroy();
             };
 
-            void getResult();
+            //void getResult();
 
             // get data asynchronously
             void registerListener(pfnQueryResultsListener listener){
@@ -76,10 +80,19 @@ namespace Drill {
             void cancel();    
             bool isCancelled(){return this->m_bCancel;};
             bool hasSchemaChanged(){return this->m_bHasSchemaChanged;};
+            int getCoordinationId(){ return this->m_coordinationId;}
+
+            void setQueryId(QueryId* q){this->m_pQueryId=q;}
+
+            //void setIsLastChunk(bool val){ this->m_bIsLastChunk=val;}
+            //void setQueryPending(bool val){ this->m_bIsQueryPending=val;}
+            //pfnQueryResultsListener getQueryResultsListener(){ return this->m_pResultsListener;}
 
         private:
 
             DrillClientImpl* m_pClient;
+
+            int m_coordinationId;
 
             // Vector of Buffers holding data returned by the server
             // Each data buffer is decoded into a RecordBatch
@@ -88,10 +101,10 @@ namespace Drill {
             std::vector<FieldMetadata*> m_columnDefs;
 
             //length ofthe current data msg being received
-            uint32_t m_rmsgLen;
+            //uint32_t m_rmsgLen;
             //Pointer to the current data buffer being received and processed
-            ByteBuf_t m_currentBuffer;
-            Byte_t m_readLengthBuf[LEN_PREFIX_BUFLEN];
+            //ByteBuf_t m_currentBuffer;
+            //Byte_t m_readLengthBuf[LEN_PREFIX_BUFLEN];
 
             // Mutex to protect read buffer. Is this needed???
             boost::mutex m_bufferMutex; 
@@ -113,29 +126,20 @@ namespace Drill {
 
             bool m_bHasSchemaChanged;
 
+            QueryId* m_pQueryId;
+
             // Results callback
             pfnQueryResultsListener m_pResultsListener;
 
-            ByteBuf_t allocateBuffer(size_t len){
-                ByteBuf_t b = (ByteBuf_t)malloc(len);
-                memset(b, 0, len);
-                return b;
-            }
-
-            void freeBuffer(ByteBuf_t b){
-                free(b);
-            }
-
-            void getNextRecordBatch();
+            //void getNextRecordBatch();
             // get the length of the data being sent and start an async read to read that data
-            void handleReadLength(const boost::system::error_code & err, size_t bytes_transferred) ;
-            void handleReadMsg(const boost::system::error_code & err, size_t bytes_transferred) ;
+            //void handleReadLength(const boost::system::error_code & err, size_t bytes_transferred) ;
+            //void handleReadMsg(const boost::system::error_code & err, size_t bytes_transferred) ;
             status_t setupColumnDefs(QueryResult* pQueryResult);
-
-
-            status_t defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err);
             void sendAck(InBoundRpcMessage& msg);
             void sendCancel(InBoundRpcMessage& msg);
+
+            status_t defaultQueryResultsListener(void* ctx, RecordBatch* b, DrillClientError* err);
 
             void clearAndDestroy();
     };
@@ -144,8 +148,8 @@ namespace Drill {
         friend class DrillClientQueryResult;
 
         public:
-        DrillClientImpl():m_socket(m_io_service), m_pListenerThread(NULL),
-        m_rbuf(1024), m_wbuf(1024)  {
+        DrillClientImpl():m_socket(m_io_service), m_strand(m_io_service), m_pListenerThread(NULL),
+        m_rbuf(1024), m_wbuf(1024), m_coordinationId(1) {
             m_bIsConnected=false;
         };
 
@@ -176,9 +180,11 @@ namespace Drill {
 
         private:
 
+
         bool m_bIsConnected;
         boost::asio::io_service m_io_service;
         boost::asio::ip::tcp::socket m_socket;
+        boost::asio::strand m_strand;
         boost::thread * m_pListenerThread;
 
         //for synchronous messages, like validate handshake
@@ -186,15 +192,41 @@ namespace Drill {
         DataBuf m_wbuf; // buffer for sending synchronous message
         // Mutex to protect read/write buffer.
         boost::mutex m_bufferMutex; 
+        // Mutex to protect coordinationId
+        boost::mutex m_coordMutex; 
 
-        // Send and receive synchronous messages
+        Byte_t m_readLengthBuf[LEN_PREFIX_BUFLEN];
+
+        int getNextCoordinationId(){ return ++m_coordinationId; };
+        // end and receive synchronous messages
         void sendSync(OutBoundRpcMessage& msg);
         void recvSync(InBoundRpcMessage& msg);
+        void getNextResult();
+        void handleRead(ByteBuf_t _buf, const boost::system::error_code & err, size_t bytes_transferred) ;
+        ByteBuf_t allocateBuffer(size_t len){
+            ByteBuf_t b = (ByteBuf_t)malloc(len); memset(b, 0, len); return b;
+        }
+        void freeBuffer(ByteBuf_t b){ free(b); }
 
-        RpcEncoder m_encoder;
-        RpcDecoder m_decoder;
 
-        //std::vector<DrillClientQueryResult*> m_queryResults;
+        static RpcEncoder s_encoder;
+        static RpcDecoder s_decoder;
+
+        struct compareQueryId{
+            bool operator()(const QueryId* q1, const QueryId* q2) const {
+                return q1->part1()<q2->part1() && q1->part2() < q2->part2();
+            }
+        };
+        //static bool compareQueryId(const QueryId* q1, const QueryId* q2){
+        //    return q1->part1<q2->part1 && q1->part2 < q2->part2;
+        //}
+        //coordination id to query result 
+        std::map<int, DrillClientQueryResult*> m_queryIds;
+
+        // query id to query result
+        std::map<QueryId*, DrillClientQueryResult*, compareQueryId> m_queryResults;
+
+        int m_coordinationId;
 
     };
 
