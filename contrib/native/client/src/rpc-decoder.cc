@@ -10,7 +10,7 @@ using google::protobuf::io::CodedInputStream;
 int RpcDecoder::LengthDecode(const uint8_t* buf, uint32_t* p_length) {
     // read the frame to get the length of the message and then
 
-    CodedInputStream* cis = new CodedInputStream(buf, 5); // read 4 bytes at most
+    CodedInputStream* cis = new CodedInputStream(buf, 5); // read 5 bytes at most
 
     int pos0 = cis->CurrentPosition(); // for debugging
     cis->ReadVarint32(p_length);
