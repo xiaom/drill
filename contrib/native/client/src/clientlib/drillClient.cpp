@@ -18,7 +18,7 @@ RecordIterator::~RecordIterator(){
     this->m_pQueryResult=NULL;
 }
 
-vector<FieldMetadata*>&  RecordIterator::getColDefs(){
+std::vector<FieldMetadata*>&  RecordIterator::getColDefs(){
     //NOTE: if query is cancelled, return whatever you have. Client applications job to deal with it.
     if(this->m_pColDefs==NULL){
     this->m_pQueryResult->waitForData();

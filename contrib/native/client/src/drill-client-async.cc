@@ -77,7 +77,7 @@ bool DrillClientImpl::ValidateHandShake(){
 }
 
 
-vector<const FieldMetadata*> DrillClientQueryResult::s_emptyColDefs;
+std::vector<const FieldMetadata*> DrillClientQueryResult::s_emptyColDefs;
 
 DrillClientQueryResult* DrillClientImpl::SubmitQuery(QueryType t, const string& plan, pfnQueryResultsListener l, void* lCtx){
     //BOOST_LOG_TRIVIAL(trace) << "plan = " << plan;

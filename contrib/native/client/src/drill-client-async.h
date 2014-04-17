@@ -89,6 +89,7 @@ namespace Drill {
             //void setIsLastChunk(bool val){ this->m_bIsLastChunk=val;}
             //void setQueryPending(bool val){ this->m_bIsQueryPending=val;}
             //pfnQueryResultsListener getQueryResultsListener(){ return this->m_pResultsListener;}
+			void* getListenerContext() {return this->m_pListenerCtx;}
 
 			void setQueryId(const exec::shared::QueryId& qid) { this->m_queryId = qid; }
 			exec::shared::QueryId getQueryId(){ return this->m_queryId; }
