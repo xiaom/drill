@@ -288,6 +288,7 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf, const boost::system::error_code
                 m_queryResults[qid]=pDrillClientQueryResult;
                 //save queryId allocated here so we can free it later
                 pDrillClientQueryResult->setQueryId(qid);
+                pDrillClientQueryResult->setQueryId(*qid); // @xiaom I know it is kind of confused here. I add the m_queryId as a member of query_result. IMHO, no need to dynamically allocate queryid.    
                 getNextResult();
             }else{
                 //TODO: return QRY_ERROR;
