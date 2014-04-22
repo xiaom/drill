@@ -24,7 +24,7 @@
 
 
 #include "common.h"
-#include "drill-client-async.h"
+#include "clientlib/drillClient.hpp"
 #include "recordBatch.h"
 #include "proto-cpp/Types.pb.h"
 #include "proto-cpp/User.pb.h"
@@ -66,31 +66,31 @@ void print(const FieldMetadata* pFieldMetadata, void* buf, size_t sz){
     switch (type) {
         case BIGINT:
             switch (mode) {
-                case REQUIRED:
+                case DM_REQUIRED:
                     sprintf((char*)printBuffer, "%lld", *(uint64_t*)buf);
-                case OPTIONAL:
+                case DM_OPTIONAL:
                     break;
-                case REPEATED:
+                case DM_REPEATED:
                     break;
             }
             break;
         case VARBINARY:
             switch (mode) {
-                case REQUIRED:
+                case DM_REQUIRED:
                     memcpy(printBuffer, buf, sz);
-                case OPTIONAL:
+                case DM_OPTIONAL:
                     break;
-                case REPEATED:
+                case DM_REPEATED:
                     break;
             }
             break;
         case VARCHAR:
             switch (mode) {
-                case REQUIRED:
+                case DM_REQUIRED:
                     memcpy(printBuffer, buf, sz);
-                case OPTIONAL:
+                case DM_OPTIONAL:
                     break;
-                case REPEATED:
+                case DM_REPEATED:
                     break;
             }
             break;
@@ -106,79 +106,38 @@ void print(const FieldMetadata* pFieldMetadata, void* buf, size_t sz){
 int main(int argc, char* argv[]) {
     try {
 
-        string drill_addr = "127.0.0.1";
+		
+        string drill_addr = "10.0.28.124";
         int port=31010;
-        string queryType="sync";
-        string apiType="usepublicapi";
-        string plan = "select * from INFORMATION_SCHEMA.SCHEMATA";
+		UserServerEndPoint user_server(drill_addr,port);
+		// use async public api
+        // string queryType="sync";
+        // string apiType="usepublicapi";
+        
+		std::vector<std::string> plans(2); 
+		plans[0] = "select * from INFORMATION_SCHEMA.SCHEMATA";
+		plans[1] = "select * from INFORMATION_SCHEMA.`TABLES`";
 
-        UserServerEndPoint user_server(drill_addr,port);
-        if(apiType=="useinternalapi"){
-            DrillClientImpl client;
-            client.Connect(user_server);
-            cerr << "Connected!\n" << endl;
-            cerr << "Handshaking..." << endl;
-            if (client.ValidateHandShake())
-                cerr << "Handshake Succeeded!\n" << endl;
-            cerr << "plan = " << plan << endl;
 
-            if(queryType=="sync"){
-                DrillClientQueryResult* pClientQuery = client.SubmitQuery(exec::user::SQL, plan, NULL, NULL);
-                RecordBatch* pR=NULL;
-                while((pR=pClientQuery->getNext())!=NULL){
-                    pR->print(2);
-                    delete pR;
-                }
-            }else{
-                DrillClientQueryResult* pClientQuery = client.SubmitQuery(exec::user::SQL, plan, QueryResultsListener, NULL);
-                client.waitForResults();
-            }
-            client.Close();
-        }else{
-            DrillClient client;
-            client.connect(user_server);
-            cerr << "Connected!\n" << endl;
-            cerr << "plan = " << plan << endl;
+        DrillClient client;
+        client.connect(user_server);
 
-            if(queryType=="sync"){
-                DrillClientError* err=NULL;
-                status_t ret;
-                RecordIterator* pIter = client.submitQuery(exec::user::SQL, plan, err);
-                size_t row=0;
-                if(pIter){
-                    // get fields.
-                    std::vector<FieldMetadata*> fields = pIter->getColDefs();
-                    while((ret=pIter->next())==QRY_SUCCESS){
-                        row++;
-                        if(row%4095==0){
-                            for(size_t i=0; i<fields.size(); i++){
-                                std::string name= fields[i]->def().name(0).name();
-                                printf("%s\t", name.c_str());
-                            }
-                        }
-                        printf("ROW: %ld\t", row);
-                        for(size_t i=0; i<fields.size(); i++){
-                            void* pBuf; size_t sz;
-                            pIter->getCol(i, &pBuf, &sz);
-                            print(fields[i], pBuf, sz);
-                        }
-                        printf("\n");
-                    }
-                }
-                //delete pIter;
-                client.freeQueryIterator(&pIter);
-            }else{
-                QueryHandle_t qryHandle=NULL;
-                client.submitQuery(exec::user::PHYSICAL, plan, QueryResultsListener, NULL, &qryHandle);
-                client.waitForResults();
-                client.freeQueryResources(&qryHandle);
-            }
-            client.close();
-        }
+		for(int i = 0; i< plans.size() ; i++){
+			std::string& plan = plans[i];
+			QueryHandle_t qryHandle=NULL;
+			client.submitQuery(exec::user::SQL, plan, QueryResultsListener, NULL, &qryHandle);
+			client.waitForResults();
+			client.freeQueryResources(&qryHandle);
+		}
+		client.close();
+        
     } catch (std::exception& e) {
         cerr << e.what() << endl;
     }
 
+	std::cout << "\nContinue...\n";
+	char placeholder;
+	std::cin >> placeholder;
     return 0;
 }
 
