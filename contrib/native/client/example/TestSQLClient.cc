@@ -107,7 +107,8 @@ int main(int argc, char* argv[]) {
     try {
 
 		
-        string drill_addr = "10.0.28.124";
+        //string drill_addr = "10.0.28.124";
+        string drill_addr = "127.0.0.1";
         int port=31010;
 		UserServerEndPoint user_server(drill_addr,port);
 		// use async public api
@@ -135,7 +136,7 @@ int main(int argc, char* argv[]) {
         cerr << e.what() << endl;
     }
 
-	std::cout << "\nContinue...\n";
+	std::cout << "\nContinue?\n";
 	char placeholder;
 	std::cin >> placeholder;
     return 0;
