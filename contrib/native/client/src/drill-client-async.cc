@@ -155,8 +155,10 @@ void DrillClientImpl::getNextResult() {
 }
 
 void DrillClientImpl::waitForResults(){
+    m_io_service.stop();
     this->m_pListenerThread->join();
     delete this->m_pListenerThread; this->m_pListenerThread=NULL;
+    m_io_service.reset();
 }
 
 void DrillClientImpl::handleRead(ByteBuf_t _buf, const boost::system::error_code& err, size_t bytes_transferred) {
@@ -269,6 +271,10 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf, const boost::system::error_code
             }
             if(pDrillClientQueryResult->m_bIsLastChunk){
                 BOOST_LOG_TRIVIAL(trace) << "Received last batch.";
+
+                // No more data. Remove from the map.
+                this->m_queryResults.erase(&qid);
+                this->m_queryIds.erase(pDrillClientQueryResult->getCoordinationId());
                 return;
             }
             } // release lock
