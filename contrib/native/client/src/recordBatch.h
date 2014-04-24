@@ -1,9 +1,9 @@
 #ifndef RECORDBATCH_H
 #define RECORDBATCH_H
 
-//using namespace exec::shared;
 #include <stdint.h>
 #include <vector>
+#include <sstream>
 #include <assert.h>
 #include <proto-cpp/User.pb.h>
 
@@ -155,64 +155,33 @@ namespace Drill {
             }
     };
 
-    
-    //<Template class??>
-    class ValueVectorInt32:public ValueVectorFixedWidth{
-        public:
-            ValueVectorInt32(SlicedByteBuf *b, size_t rowCount):ValueVectorFixedWidth(b, rowCount){
-            }
-            uint32_t get(size_t index) const {
-                return m_pBuffer->getUint32(index*sizeof(uint32_t));
-            }
-            void getValueAt(size_t index, char* buf, size_t nChars) const {
-                char str[64]; // Can't have more than 64 digits of precision
-                //could use itoa instead of sprintf which is slow,  but it is not portable
-                sprintf(str, "%d", this->get(index));
-                strncpy(buf, str, nChars);
-                return;
-            }
-            uint32_t getSize(size_t index) const {
-                return sizeof(uint32_t);
-            }
+    template <typename VALUE_TYPE>
+    class ValueVectorFixed : public ValueVectorFixedWidth
+    {
+    public:
+        ValueVectorFixed(SlicedByteBuf *b, size_t rowCount) :
+            ValueVectorFixedWidth(b, rowCount)
+        {}
+        
+        VALUE_TYPE get(size_t index) const
+        {
+            return m_pBuffer->readAt<VALUE_TYPE>(index * sizeof(VALUE_TYPE));
+        }
+
+        void getValueAt(size_t index, char* buf, size_t nChars) const
+        {
+            std::stringstream sstr;
+            VALUE_TYPE value = this->get(index);
+            sstr << value;
+            strncpy(buf, sstr.str().c_str(), nChars);
+        }
+
+        uint32_t getSize(size_t index) const
+        {
+            return sizeof(VALUE_TYPE);
+        }
     };
 
-    class ValueVectorInt64:public ValueVectorFixedWidth{
-        public:
-            ValueVectorInt64(SlicedByteBuf *b, size_t rowCount):ValueVectorFixedWidth(b, rowCount){
-            }
-            uint64_t get(size_t index) const {
-                return m_pBuffer->getUint64(index*sizeof(uint64_t));
-            }
-            void getValueAt(size_t index, char* buf, size_t nChars) const {
-                char str[64]; // Can't have more than 64 digits of precision
-                //could use itoa instead of sprintf which is slow,  but it is not portable
-                sprintf(str, "%lld", this->get(index));
-                strncpy(buf, str, nChars);
-                return;
-            }
-            uint32_t getSize(size_t index) const {
-                return sizeof(uint64_t);
-            }
-    };
-
-    class ValueVectorByte:public ValueVectorFixedWidth{
-        public:
-            ValueVectorByte(SlicedByteBuf *b, size_t rowCount):ValueVectorFixedWidth(b, rowCount){
-            }
-            uint8_t get(size_t index) const {
-                return m_pBuffer->getByte(index*sizeof(uint8_t));
-            }
-            void getValueAt(size_t index, char* buf, size_t nChars) const {
-                char str[64]; // Can't have more than 64 digits of precision
-                //could use itoa instead of sprintf which is slow,  but it is not portable
-                sprintf(str, "%x", this->get(index));
-                strncpy(buf, str, nChars);
-                return;
-            }
-            uint32_t getSize(size_t index) const {
-                return sizeof(uint8_t);
-            }
-    };
 
     class ValueVectorBit:public ValueVectorFixedWidth{
         public:

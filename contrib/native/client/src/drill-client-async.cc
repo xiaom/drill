@@ -155,7 +155,7 @@ void DrillClientImpl::getNextResult() {
 }
 
 void DrillClientImpl::waitForResults(){
-    m_io_service.stop();
+    // m_io_service.stop();
     this->m_pListenerThread->join();
     delete this->m_pListenerThread; this->m_pListenerThread=NULL;
     m_io_service.reset();
