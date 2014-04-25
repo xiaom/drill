@@ -25,6 +25,7 @@
 
 #include "common.h"
 #include "clientlib/drillClient.hpp"
+//#include "drill-async.hpp"
 #include "recordBatch.h"
 #include "proto-cpp/Types.pb.h"
 #include "proto-cpp/User.pb.h"
@@ -46,67 +47,17 @@
 //
 using namespace exec;
 using namespace common;
-
-
-
 using namespace Drill;
 
 status_t QueryResultsListener(DrillClientQueryResult* drillQueryResult, RecordBatch* b, DrillClientError* err){
-    b->print(10); // print at most 10 rows per batch
+    b->print(b->getNumRecords() < 10? b->getNumRecords() : 10); // print at most 10 records
     return QRY_SUCCESS ;
-}
-
-void print(const FieldMetadata* pFieldMetadata, void* buf, size_t sz){
-    const FieldDef& fieldDef = pFieldMetadata->def();
-    const MajorType& majorType=fieldDef.major_type();
-    int type = majorType.minor_type();
-    int mode = majorType.mode();
-    unsigned char printBuffer[10240];
-    memset(printBuffer, 0, sizeof(printBuffer));
-    switch (type) {
-        case BIGINT:
-            switch (mode) {
-                case DM_REQUIRED:
-                    sprintf((char*)printBuffer, "%lld", *(uint64_t*)buf);
-                case DM_OPTIONAL:
-                    break;
-                case DM_REPEATED:
-                    break;
-            }
-            break;
-        case VARBINARY:
-            switch (mode) {
-                case DM_REQUIRED:
-                    memcpy(printBuffer, buf, sz);
-                case DM_OPTIONAL:
-                    break;
-                case DM_REPEATED:
-                    break;
-            }
-            break;
-        case VARCHAR:
-            switch (mode) {
-                case DM_REQUIRED:
-                    memcpy(printBuffer, buf, sz);
-                case DM_OPTIONAL:
-                    break;
-                case DM_REPEATED:
-                    break;
-            }
-            break;
-        default:
-            //memcpy(printBuffer, buf, sz);
-            sprintf((char*)printBuffer, "NIY");
-            break;
-    }
-    printf("%s\t", (char*)printBuffer);
-    return;
 }
 
 int main(int argc, char* argv[]) {
     try {
 
-		
+        //string drill_addr = "192.168.202.156";
         //string drill_addr = "10.0.28.124";
         string drill_addr = "127.0.0.1";
         int port=31010;
@@ -115,11 +66,13 @@ int main(int argc, char* argv[]) {
         // string queryType="sync";
         // string apiType="usepublicapi";
         
-		std::vector<std::string> plans(2); 
-		plans[0] = "select * from INFORMATION_SCHEMA.SCHEMATA";
-		plans[1] = "select * from INFORMATION_SCHEMA.`TABLES`";
+		std::vector<std::string> plans(1); 
+		//plans[0] = "select * from `INFORMATION_SCHEMA`.`SCHEMATA`";
+		plans[0] = "select * from dfs.`/opt/drill/data/json/test.json`";
+		//plans[0] = "select * from `hivestg`.`integer_table`";
+		//plans[1] = "select * from INFORMATION_SCHEMA.`TABLES`";
 
-
+            
         DrillClient client;
         client.connect(user_server);
 
@@ -136,7 +89,7 @@ int main(int argc, char* argv[]) {
         cerr << e.what() << endl;
     }
 
-	std::cout << "\nContinue?\n";
+	std::cout << "\nContinue...\n";
 	char placeholder;
 	std::cin >> placeholder;
     return 0;
