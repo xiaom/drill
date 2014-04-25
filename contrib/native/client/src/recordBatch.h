@@ -97,6 +97,10 @@ namespace Drill {
                 return readAt<uint64_t>(index);
             }
 
+            bool getBit(uint32_t index){
+                // refer to BitVector.java http://bit.ly/Py1jof
+               return this->m_buffer[index/8] &  ( 1 << (index % 8) );
+            }
         private:
             ByteBuf_t m_buffer; // the backing store
             size_t  m_start;    //offset within the backing store where this slice begins
@@ -113,6 +117,13 @@ namespace Drill {
 
             virtual ~ValueVectorBase(){
             }
+
+            // test whether the value is null in the position index
+            virtual bool isNull(size_t index) const
+            {
+                return false;
+            }
+
 
             const char* get(size_t index) const {
                 return "NOT IMPLEMENTED YET";
@@ -207,6 +218,64 @@ namespace Drill {
             uint32_t getSize(size_t index) const {
                 return sizeof(uint64_t);
             }
+    };
+
+
+    template <typename VALUE_TYPE>
+    class NullableValueVectorFixed : public ValueVectorBase
+    {
+    public:
+        
+        NullableValueVectorFixed(SlicedByteBuf *b, size_t rowCount):ValueVectorBase(b, rowCount){
+                size_t offsetEnd = rowCount/8 + 1; 
+                this->m_pBitmap= new SlicedByteBuf(*b, 0, offsetEnd);
+                this->m_pData= new SlicedByteBuf(*b, offsetEnd, b->getLength());
+                // TODO: testing boundary case(null columns)
+        }
+        ~NullableValueVectorFixed(){
+            delete this->m_pBitmap;
+            delete this->m_pData;
+        
+        }
+
+        // test whether the value is null in the position index
+        bool isNull(size_t index) const
+        {
+            return !(m_pBitmap->getBit(index));
+        }
+
+        VALUE_TYPE get(size_t index) const
+        {
+            // it should not be called if the value is null 
+            assert( "value is null" && !isNull(index));
+
+            // TODO: smarter method
+            // naive way to counting bit set from bitmap[0...index)
+            int cnt_bitset = 0;
+            for(int i =0; i< index ; i++ ){
+                if(!isNull(i)) cnt_bitset++;
+            }
+
+            return m_pData->readAt<VALUE_TYPE>(cnt_bitset * sizeof(VALUE_TYPE));
+        }
+
+        void getValueAt(size_t index, char* buf, size_t nChars) const
+        {
+            assert( "value is null" && !isNull(index));
+            std::stringstream sstr;
+            VALUE_TYPE value = this->get(index);
+            sstr << value;
+            strncpy(buf, sstr.str().c_str(), nChars);
+        }
+
+        uint32_t getSize(size_t index) const
+        {
+            assert("value is null" && !isNull(index));
+            return sizeof(VALUE_TYPE);
+        }
+    private:
+        SlicedByteBuf* m_pBitmap; 
+        SlicedByteBuf* m_pData;
     };
 
     class VarWidthWrapper{

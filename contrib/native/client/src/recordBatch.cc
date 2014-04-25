@@ -68,6 +68,18 @@ ValueVectorBase* ValueVectorFactory::allocateValueVector(const FieldMetadata & f
     case DM_OPTIONAL:
         switch (type)
         {
+            case TINYINT:
+                return new NullableValueVectorFixed<int8_t>(b,f.value_count());
+            case SMALLINT:
+                return new NullableValueVectorFixed<int16_t>(b,f.value_count());
+            case INT:
+                return new NullableValueVectorFixed<int32_t>(b,f.value_count());
+            case BIGINT:
+                return new NullableValueVectorFixed<int64_t>(b,f.value_count());
+            case FLOAT4:
+                return new NullableValueVectorFixed<float>(b,f.value_count());
+            case FLOAT8:
+                return new NullableValueVectorFixed<double>(b,f.value_count());
             // not implemented yet
             default:
                 return new ValueVectorBase(b, f.value_count()); 
@@ -131,7 +143,11 @@ void RecordBatch::print(size_t num){
             const ValueVectorBase * v = m_fields[i]->getVector();
             char valueBuf[1024+1];
             memset(valueBuf, 0, sizeof(valueBuf)*sizeof(char));
-            v->getValueAt(n, valueBuf, (sizeof(valueBuf)-1)*sizeof(char));
+            if(v->isNull(n)){
+                strncpy(valueBuf,"null", (sizeof(valueBuf)-1)*sizeof(char));
+            } else{
+                v->getValueAt(n, valueBuf, (sizeof(valueBuf)-1)*sizeof(char));
+            }
             values+=valueBuf;
             values+="    ";
         } 
