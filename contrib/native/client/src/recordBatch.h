@@ -99,7 +99,7 @@ namespace Drill {
 
             bool getBit(uint32_t index){
                 // refer to BitVector.java http://bit.ly/Py1jof
-               return this->m_buffer[index/8] &  ( 1 << (index % 8) );
+               return this->m_buffer[m_start+index/8] &  ( 1 << (index % 8) );
             }
         private:
             ByteBuf_t m_buffer; // the backing store
@@ -119,8 +119,7 @@ namespace Drill {
             }
 
             // test whether the value is null in the position index
-            virtual bool isNull(size_t index) const
-            {
+            virtual bool isNull(size_t index) const {
                 return false;
             }
 
@@ -167,30 +166,27 @@ namespace Drill {
     };
 
     template <typename VALUE_TYPE>
-    class ValueVectorFixed : public ValueVectorFixedWidth
+        class ValueVectorFixed : public ValueVectorFixedWidth
     {
-    public:
-        ValueVectorFixed(SlicedByteBuf *b, size_t rowCount) :
-            ValueVectorFixedWidth(b, rowCount)
+        public:
+            ValueVectorFixed(SlicedByteBuf *b, size_t rowCount) :
+                ValueVectorFixedWidth(b, rowCount)
         {}
-        
-        VALUE_TYPE get(size_t index) const
-        {
-            return m_pBuffer->readAt<VALUE_TYPE>(index * sizeof(VALUE_TYPE));
-        }
 
-        void getValueAt(size_t index, char* buf, size_t nChars) const
-        {
-            std::stringstream sstr;
-            VALUE_TYPE value = this->get(index);
-            sstr << value;
-            strncpy(buf, sstr.str().c_str(), nChars);
-        }
+            VALUE_TYPE get(size_t index) const {
+                return m_pBuffer->readAt<VALUE_TYPE>(index * sizeof(VALUE_TYPE));
+            }
 
-        uint32_t getSize(size_t index) const
-        {
-            return sizeof(VALUE_TYPE);
-        }
+            void getValueAt(size_t index, char* buf, size_t nChars) const {
+                std::stringstream sstr;
+                VALUE_TYPE value = this->get(index);
+                sstr << value;
+                strncpy(buf, sstr.str().c_str(), nChars);
+            }
+
+            uint32_t getSize(size_t index) const {
+                return sizeof(VALUE_TYPE);
+            }
     };
 
 
@@ -222,61 +218,158 @@ namespace Drill {
 
 
     template <typename VALUE_TYPE>
-    class NullableValueVectorFixed : public ValueVectorBase
+        class NullableValueVectorFixed : public ValueVectorBase
     {
-    public:
-        
-        NullableValueVectorFixed(SlicedByteBuf *b, size_t rowCount):ValueVectorBase(b, rowCount){
+        public:
+            NullableValueVectorFixed(SlicedByteBuf *b, size_t rowCount):ValueVectorBase(b, rowCount){
                 size_t offsetEnd = rowCount/8 + 1; 
                 this->m_pBitmap= new SlicedByteBuf(*b, 0, offsetEnd);
                 this->m_pData= new SlicedByteBuf(*b, offsetEnd, b->getLength());
                 // TODO: testing boundary case(null columns)
-        }
-        ~NullableValueVectorFixed(){
-            delete this->m_pBitmap;
-            delete this->m_pData;
-        
-        }
-
-        // test whether the value is null in the position index
-        bool isNull(size_t index) const
-        {
-            return !(m_pBitmap->getBit(index));
-        }
-
-        VALUE_TYPE get(size_t index) const
-        {
-            // it should not be called if the value is null 
-            assert( "value is null" && !isNull(index));
-
-            // TODO: smarter method
-            // naive way to counting bit set from bitmap[0...index)
-            int cnt_bitset = 0;
-            for(int i =0; i< index ; i++ ){
-                if(!isNull(i)) cnt_bitset++;
             }
 
-            return m_pData->readAt<VALUE_TYPE>(cnt_bitset * sizeof(VALUE_TYPE));
-        }
+            ~NullableValueVectorFixed(){
+                delete this->m_pBitmap;
+                delete this->m_pData;
+            }
 
-        void getValueAt(size_t index, char* buf, size_t nChars) const
-        {
-            assert( "value is null" && !isNull(index));
-            std::stringstream sstr;
-            VALUE_TYPE value = this->get(index);
-            sstr << value;
-            strncpy(buf, sstr.str().c_str(), nChars);
-        }
+            // test whether the value is null in the position index
+            bool isNull(size_t index) const {
+                return (m_pBitmap->getBit(index)==0);
+            }
 
-        uint32_t getSize(size_t index) const
-        {
-            assert("value is null" && !isNull(index));
-            return sizeof(VALUE_TYPE);
-        }
-    private:
-        SlicedByteBuf* m_pBitmap; 
-        SlicedByteBuf* m_pData;
+            VALUE_TYPE get(size_t index) const {
+                // it should not be called if the value is null 
+                assert( "value is null" && !isNull(index));
+                return m_pData->readAt<VALUE_TYPE>(index * sizeof(VALUE_TYPE));
+            }
+
+            void getValueAt(size_t index, char* buf, size_t nChars) const {
+                assert( "value is null" && !isNull(index));
+                std::stringstream sstr;
+                VALUE_TYPE value = this->get(index);
+                sstr << value;
+                strncpy(buf, sstr.str().c_str(), nChars);
+            }
+
+            uint32_t getSize(size_t index) const {
+                assert("value is null" && !isNull(index));
+                return sizeof(VALUE_TYPE);
+            }
+        private:
+            SlicedByteBuf* m_pBitmap; 
+            SlicedByteBuf* m_pData;
     };
+
+    struct DateTimeBase{
+        DateTimeBase(){m_datetime=0;}
+        uint64_t m_datetime;
+        virtual void load() =0;
+        virtual std::string toString()=0;
+    };
+    struct DateWrapper: public virtual DateTimeBase{
+        DateWrapper(){};
+        DateWrapper(uint64_t d){m_datetime=d; load();}
+        uint32_t m_year;
+        uint32_t m_month;
+        uint32_t m_day;
+        void load();
+        std::string toString();
+    };
+    struct TimeWrapper: public virtual DateTimeBase{
+        TimeWrapper(){};
+        TimeWrapper(uint32_t d){m_datetime=d; load();}
+        uint32_t m_hr;
+        uint32_t m_min;
+        uint32_t m_sec;
+        uint32_t m_msec;
+        void load();
+        std::string toString();
+    };
+    struct DateTimeWrapper: public DateWrapper, public TimeWrapper{
+        DateTimeWrapper(uint64_t d){m_datetime=d; load();}
+        void load();
+        std::string toString();
+    };
+
+    /*
+     * VALUE_CLASS_TYPE is a struct with a constructor that takes a parameter of type VALUE_TYPE (a primitive type)
+     * VALUE_CLASS_TYPE implements a toString function
+     * Note that VALUE_CLASS_TYPE is created on the stack and the copy reurned in the get function. So the class needs to 
+     * have the appropriate copy constructor or the default bitwise copy should work correctly.
+     */
+    template <class VALUE_CLASS_TYPE, typename VALUE_TYPE>
+        class ValueVectorTyped:public ValueVectorFixedWidth{
+            public:
+                ValueVectorTyped(SlicedByteBuf *b, size_t rowCount) :
+                    ValueVectorFixedWidth(b, rowCount)
+            {}
+
+
+                VALUE_CLASS_TYPE get(size_t index) const {
+                    VALUE_TYPE v= m_pBuffer->readAt<VALUE_TYPE>(index * sizeof(VALUE_TYPE));
+                    VALUE_CLASS_TYPE r(v);
+                    return r;
+                }
+
+                void getValueAt(size_t index, char* buf, size_t nChars) const {
+                    std::stringstream sstr;
+                    VALUE_CLASS_TYPE value = this->get(index);
+                    sstr << value.toString();
+                    strncpy(buf, sstr.str().c_str(), nChars);
+                }
+
+                uint32_t getSize(size_t index) const {
+                    return sizeof(VALUE_TYPE);
+                }
+        };
+
+    template <class VALUE_CLASS_TYPE, class VALUE_VECTOR_TYPE>
+        class NullableValueVectorTyped : public ValueVectorBase {
+            public:
+
+                NullableValueVectorTyped(SlicedByteBuf *b, size_t rowCount):ValueVectorBase(b, rowCount){
+                    size_t offsetEnd = rowCount/8 + 1; 
+                    this->m_pBitmap= new SlicedByteBuf(*b, 0, offsetEnd);
+                    this->m_pData= new SlicedByteBuf(*b, offsetEnd, b->getLength());
+                    this->m_pVector= new VALUE_VECTOR_TYPE(m_pData, b->getLength()-offsetEnd);
+                }
+
+                ~NullableValueVectorTyped(){
+                    delete this->m_pBitmap;
+                    delete this->m_pData;
+                    delete this->m_pVector;
+                }
+
+                bool isNull(size_t index) const{
+                    return (m_pBitmap->getBit(index)==0);
+                }
+
+                VALUE_CLASS_TYPE get(size_t index) const {
+                    assert(!isNull(index));
+                    return m_pVector->get(index);
+                }
+
+                void getValueAt(size_t index, char* buf, size_t nChars) const{
+                    std::stringstream sstr;
+                    if(this->isNull(index)){ 
+                        sstr<<"NULL";
+                        strncpy(buf, sstr.str().c_str(), nChars);
+                    }else{
+                        return m_pVector->getValueAt(index, buf, nChars);
+                    }
+                }
+
+                uint32_t getSize(size_t index) const {
+                    assert(!isNull(index));
+                    return this->m_pVector->getSize(index);
+                }
+
+            private:
+                SlicedByteBuf* m_pBitmap; 
+                SlicedByteBuf* m_pData;
+                VALUE_VECTOR_TYPE* m_pVector;
+        };
 
     class VarWidthWrapper{
         public:
