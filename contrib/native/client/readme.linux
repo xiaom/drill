@@ -1,0 +1,62 @@
+CentOS 6.5 build
+
+Install Prerequisites
+---------------------
+0) Install development tools
+    $>yum groupinstall 'Development Tools'
+
+1) CMAKE 2.8
+    $> yum install cmake28
+
+2.1) Download protobuf 2.5 from :
+    http://rpm.pbone.net/index.php3/stat/4/idpl/23552166/dir/centos_6/com/protobuf-2.5.0-16.1.x86_64.rpm.html
+    http://rpm.pbone.net/index.php3/stat/4/idpl/23552167/dir/centos_6/com/protobuf-compiler-2.5.0-16.1.x86_64.rpm.html
+    http://rpm.pbone.net/index.php3/stat/4/idpl/23552169/dir/centos_6/com/protobuf-devel-2.5.0-16.1.x86_64.rpm.html
+
+2.2) Install Protobufs
+    $> sudo yum install protobuf
+    $> sudo yum install protobuf-compiler
+    $> sudo yum install protobuf-devel
+
+3)
+3.1) Install Zookeeper prerequisites
+    - autoconf 2.59 or greater (should be installed with dev tools)
+    - cppunit 1.10.x or higher
+
+3.1.1) install cppuint
+    $> sudo yum install cppunit
+    $> sudo yum install cppunit-devel
+
+3.2) Download Zookeeper from :
+    - http://apache.mirror.quintex.com/zookeeper/zookeeper-3.4.6/
+    - untar and then follow instructions in ZOOKEEPER_DIR/src/c/README to build and install the client libs
+
+3.3) run autoreconf
+    $> autoreconf -if
+
+3.4) Build Zookeeper libs
+    $> ./configure --enable-debug --with-syncapi --enable-static --enable-shared
+    $> make && sudo make install
+
+4) Install boost
+    $> yum install boost
+
+Build drill client
+-------------------
+    $> cd DRILL_DIR/contrib/native/client
+    $> mkdir build
+    $> cd build && cmake28 -G "Unix Makefiles" -D CMAKE_BUILD_TYPE=Debug ..
+    $> make
+
+Test
+----
+Run query submitter from the command line
+    $> querySubmitter query='select * from dfs.`/Users/pchandra/work/data/tpc-h/customer.parquet`' type=sql connectStr=local=10.250.0.146:31010 api=async logLevel=trace
+
+Valgrind
+--------
+Examples to run Valgrind and see the log in Valkyrie
+    $> valgrind --leak-check=yes --xml=yes --xml-file=qs-vg-log-a.xml querySubmitter query='select LINEITEM from dfs.`/Users/pchandra/work/data/tpc-h/customer.parquet`' type=sql connectStr=local=10.250.0.146:31010 api=async logLevel=trace
+    $> valkyrie -l qs-vg-log-a.xml
+
+
