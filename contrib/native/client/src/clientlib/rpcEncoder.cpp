@@ -39,7 +39,7 @@ const uint32_t RpcEncoder::PROTOBUF_BODY_TAG_LENGTH = getRawVarintSize(PROTOBUF_
 const uint32_t RpcEncoder::RAW_BODY_TAG_LENGTH = getRawVarintSize(RAW_BODY_TAG);
 
 
-bool RpcEncoder::Encode(DataBuf& buf, OutBoundRpcMessage& msg) {
+int RpcEncoder::Encode(ByteBuf_t& buf, int size, OutBoundRpcMessage& msg) {
     using exec::rpc::RpcHeader;
     using google::protobuf::io::CodedOutputStream;
     using google::protobuf::io::ArrayOutputStream;
@@ -68,9 +68,9 @@ bool RpcEncoder::Encode(DataBuf& buf, OutBoundRpcMessage& msg) {
        full_length += (RAW_BODY_TAG_LENGTH + getRawVarintSize(raw_body_length) + raw_body_length);
        }
        */
-
-    buf.resize(full_length + getRawVarintSize(full_length));
-    ArrayOutputStream* os = new ArrayOutputStream(buf.data(), buf.size());
+    int code_length = full_length + getRawVarintSize(full_length);
+    assert(code_length <= size);
+    ArrayOutputStream* os = new ArrayOutputStream((void*) buf, code_length);
     CodedOutputStream* cos = new CodedOutputStream(os);
 
 
@@ -103,7 +103,7 @@ bool RpcEncoder::Encode(DataBuf& buf, OutBoundRpcMessage& msg) {
     delete cos;
 
     // Done! no read to write data body for client
-    return true;
+    return code_length;
 }
 
 } // namespace Drill

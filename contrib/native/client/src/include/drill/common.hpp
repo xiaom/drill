@@ -40,6 +40,7 @@
 
 #define MAX_CONNECT_STR 4096
 #define MAX_SOCK_RD_BUFSIZE  1024
+#define MAX_SOCK_WR_BUFSIZE  102400 // Send buffer size (Application like Tableau may generate very long query)
 
 #define MEM_CHUNK_SIZE 64*1024; // 64K
 #define MAX_MEM_ALLOC_SIZE 256*1024*1024; // 256 MB 

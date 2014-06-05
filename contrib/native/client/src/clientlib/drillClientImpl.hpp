@@ -185,7 +185,7 @@ class DrillClientImpl{
             m_socket(m_io_service),
             m_deadlineTimer(m_io_service),
             m_rbuf(NULL),
-            m_wbuf(MAX_SOCK_RD_BUFSIZE)
+            m_wbuf(NULL)
     {
         srand(time(NULL));
         m_coordinationId=rand()%1729+1;
@@ -202,6 +202,9 @@ class DrillClientImpl{
             boost::system::error_code ignorederr;
             m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ignorederr);
             m_socket.close();
+            if(m_wbuf!=NULL){
+                Utils::freeBuffer(m_wbuf, MAX_SOCK_WR_BUFSIZE); m_wbuf=NULL;
+            }
             if(m_rbuf!=NULL){
                 Utils::freeBuffer(m_rbuf, MAX_SOCK_RD_BUFSIZE); m_rbuf=NULL;
             }
@@ -295,7 +298,7 @@ class DrillClientImpl{
 
         //for synchronous messages, like validate handshake
         ByteBuf_t m_rbuf; // buffer for receiving synchronous messages
-        DataBuf m_wbuf; // buffer for sending synchronous message
+        ByteBuf_t m_wbuf; // buffer for sending synchronous message
 
         // Mutex to protect drill client operations
         boost::mutex m_dcMutex;

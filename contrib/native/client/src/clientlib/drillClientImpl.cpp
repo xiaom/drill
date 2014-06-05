@@ -145,13 +145,19 @@ connectionStatus_t DrillClientImpl::connect(const char* host, const char* port){
 }
 
 connectionStatus_t DrillClientImpl::sendSync(OutBoundRpcMessage& msg){
-    DrillClientImpl::s_encoder.Encode(m_wbuf, msg);
+    if( m_wbuf == NULL ){
+        m_wbuf = Utils::allocateBuffer(MAX_SOCK_WR_BUFSIZE);
+    }
+    int code_length = DrillClientImpl::s_encoder.Encode(m_wbuf, MAX_SOCK_WR_BUFSIZE, msg);
     boost::system::error_code ec;
-    size_t s=m_socket.write_some(boost::asio::buffer(m_wbuf), ec);
+    size_t s=m_socket.write_some(boost::asio::buffer(m_wbuf,code_length), ec);
     if(!ec && s!=0){
     return CONN_SUCCESS;
     }else{
         return handleConnError(CONN_FAILURE, getMessage(ERR_CONN_WFAIL, ec.message().c_str()));
+    }
+    if(m_wbuf!=NULL){
+        Utils::freeBuffer(m_wbuf, MAX_SOCK_WR_BUFSIZE); m_wbuf=NULL;
     }
 }
 
@@ -457,7 +463,7 @@ status_t DrillClientImpl::processQueryResult(AllocatedBufferPtr  allocatedBuffer
         if(it!=this->m_queryResults.end()){
             pDrillClientQueryResult=(*it).second;
         }else{
-            assert(0);
+            //assert(0);
             //assert might be compiled away in a release build. So return an error to the app.
             status_t ret= handleQryError(QRY_INTERNAL_ERROR, getMessage(ERR_QRY_OUTOFORDER), NULL);
             delete qr;

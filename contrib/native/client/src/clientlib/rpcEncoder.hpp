@@ -28,7 +28,7 @@ class RpcEncoder {
     public:
         RpcEncoder() {}
         ~RpcEncoder() { }
-        bool Encode(DataBuf& buf,OutBoundRpcMessage& msg);
+        int Encode(ByteBuf_t& buf, int size, OutBoundRpcMessage& msg);
         static const uint32_t HEADER_TAG;
         static const uint32_t PROTOBUF_BODY_TAG;
         static const uint32_t RAW_BODY_TAG;
