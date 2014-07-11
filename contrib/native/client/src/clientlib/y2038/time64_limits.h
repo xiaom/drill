@@ -38,8 +38,12 @@ THE SOFTWARE.
 #define TIME64_LIMITS_H
 
 /* Max/min for localtime() */
-#define SYSTEM_LOCALTIME_MAX     2147483647
+#define SYSTEM_LOCALTIME_MAX     32535215999 //  23:59:59, December 31, 3000, UTC (using _time64 and __time64_t)
+#ifdef _WIN32
+#define SYSTEM_LOCALTIME_MIN     0			// midnight, January 1, 1970
+#else
 #define SYSTEM_LOCALTIME_MIN    -2147483647-1
+#endif
 
 /* Max/min for gmtime() */
 #define SYSTEM_GMTIME_MAX        2147483647
