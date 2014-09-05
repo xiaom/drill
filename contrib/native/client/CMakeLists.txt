@@ -31,17 +31,17 @@ if(MSVC)
     set(Boost_USE_MULTITHREADED ON)
     set(Boost_USE_STATIC_RUNTIME OFF)
 else()
-    set(Boost_USE_STATIC_LIBS OFF)
+    set(Boost_USE_STATIC_LIBS ON)
     set(Boost_USE_MULTITHREADED ON)
     set(Boost_USE_STATIC_RUNTIME OFF)
 endif()
 
-find_package(Boost 1.53.0 REQUIRED COMPONENTS regex system date_time chrono thread )
+find_package(Boost 1.53.0 REQUIRED COMPONENTS regex system date_time chrono thread)
 include_directories(${Boost_INCLUDE_DIRS})
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-    set(CMAKE_EXE_LINKER_FLAGS "-lrt -lpthread")
-    set(CMAKE_CXX_FLAGS "-fPIC")
+    #set(CMAKE_EXE_LINKER_FLAGS "-lrt -lpthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 if(MSVC)
     set(CMAKE_CXX_FLAGS "/EHsc")
@@ -53,7 +53,12 @@ if(MSVC)
     # use static libs with zookeeper
     add_definitions(-DUSE_STATIC_LIB)
 else()
-    add_definitions(-DBOOST_ALL_DYN_LINK)
+    # use static version for now
+    # ---
+    # add_definitions(-DBOOST_ALL_DYN_LINK)
+    # ---
+    add_definitions(-DBOOST_ALL_NO_LIB)
+    add_definitions(-DUSE_STATIC_LIB)
 endif()
 
 # Find Protobufs
@@ -91,4 +96,5 @@ link_directories(/usr/local/lib)
 
 add_executable(querySubmitter example/querySubmitter.cpp )
 
-target_link_libraries(querySubmitter ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} drillClient protomsgs y2038)
+#target_link_libraries(querySubmitter ${Boost_LIBRARIES} ${PROTOBUF_LIBRARY} drillClient protomsgs y2038)
+target_link_libraries(querySubmitter drillClient)
