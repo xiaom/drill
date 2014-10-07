@@ -584,10 +584,10 @@ status_t DrillClientImpl::processQueryResult(AllocatedBufferPtr  allocatedBuffer
         pDrillClientQueryResult->m_bIsLastChunk=qr->is_last_chunk();
         pfnQueryResultsListener pResultsListener=pDrillClientQueryResult->m_pResultsListener;
         if(pResultsListener!=NULL){
-            ret = pResultsListener(pDrillClientQueryResult, pRecordBatch, NULL);
+            ret = pResultsListener(pDrillClientQueryResult->getListenerContext(), pRecordBatch, NULL);
         }else{
             //Use a default callback that is called when a record batch is received
-            ret = pDrillClientQueryResult->defaultQueryResultsListener(pDrillClientQueryResult,
+            ret = pDrillClientQueryResult->defaultQueryResultsListener(pDrillClientQueryResult->getListenerContext(),
                     pRecordBatch, NULL);
         }
     } // release lock
@@ -1015,9 +1015,9 @@ void DrillClientQueryResult::signalError(DrillClientError* pErr){
         m_pError=pErr;
         pfnQueryResultsListener pResultsListener=this->m_pResultsListener;
         if(pResultsListener!=NULL){
-            pResultsListener(this, NULL, pErr);
+            pResultsListener(this->getListenerContext(), NULL, pErr);
         }else{
-            defaultQueryResultsListener(this, NULL, pErr);
+            defaultQueryResultsListener(this->getListenerContext(), NULL, pErr);
         }
         m_bIsQueryPending=false;
         {
