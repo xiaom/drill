@@ -59,6 +59,26 @@ Drill::status_t SchemaListener(void* ctx, Drill::FieldDefPtr fields, Drill::Dril
     }
 }
 
+
+Drill::status_t QueryResultsListenerWithContext(void* ctx, Drill::RecordBatch* b, Drill::DrillClientError* err){
+	if (!err){
+		if (b->getNumRecords() > 0){
+			std::cout << std::endl << std::endl;
+			std::cout << "************************ !! CONTEXT !! ************************";
+			std::cout << std::endl << std::endl;
+			std::cout << "The context for this result-set is: " << *((std::string*)ctx);
+			std::cout << std::endl << std::endl;
+		}
+		b->print(std::cout, 0); // print all rows
+		delete b; // we're done with this batch, we can delete it
+		return Drill::QRY_SUCCESS;
+	}
+	else{
+		std::cerr << "ERROR: " << err->msg << std::endl;
+		return Drill::QRY_FAILURE;
+	}
+}
+
 Drill::status_t QueryResultsListener(void* ctx, Drill::RecordBatch* b, Drill::DrillClientError* err){
     // Invariant:
     // (received an record batch and err is NULL)
@@ -250,10 +270,26 @@ Drill::logLevel_t getLogLevel(const char *s){
     return Drill::LOG_ERROR;
 }
 
+std::string contexts[2];
+
+std::string * getContext(int queryOrder)
+{
+	std::string * ctx = NULL;
+	if (queryOrder == 1){
+		ctx = &(contexts[0]);
+	} else {
+		ctx = &(contexts[1]);
+	}
+	return ctx;
+}
+
 int main(int argc, char* argv[]) {
     try {
 
         parseArgs(argc, argv);
+		contexts[0] = "\"The First Query\"";
+		contexts[1] = "\"Some Query After The First Query\"";
+
 
         std::vector<std::string*> queries;
 
@@ -354,19 +390,37 @@ int main(int argc, char* argv[]) {
                 }
                 client.freeQueryIterator(&pRecIter);
             }
-        }else{
+        }else if (api=="asyncCtx"){
+			int queryOrder = 1;
             for(queryInpIter = queryInputs.begin(); queryInpIter != queryInputs.end(); queryInpIter++) {
                 Drill::QueryHandle_t* qryHandle = new Drill::QueryHandle_t;
-                client.submitQuery(type, *queryInpIter, QueryResultsListener, NULL, qryHandle);
+				std::string * pContext = getContext(queryOrder);
+				client.submitQuery(type, *queryInpIter, QueryResultsListenerWithContext, pContext, qryHandle);
                 client.registerSchemaChangeListener(qryHandle, SchemaListener);
                 queryHandles.push_back(qryHandle);
+				queryOrder++;
             }
             client.waitForResults();
             for(queryHandleIter = queryHandles.begin(); queryHandleIter != queryHandles.end(); queryHandleIter++) {
                 client.freeQueryResources(*queryHandleIter);
                 delete *queryHandleIter;
             }
-        }
+		}
+		else {
+
+			for (queryInpIter = queryInputs.begin(); queryInpIter != queryInputs.end(); queryInpIter++) {
+				Drill::QueryHandle_t* qryHandle = new Drill::QueryHandle_t;
+				client.submitQuery(type, *queryInpIter, QueryResultsListener, NULL, qryHandle);
+				client.registerSchemaChangeListener(qryHandle, SchemaListener);
+				queryHandles.push_back(qryHandle);
+			}
+			client.waitForResults();
+			for (queryHandleIter = queryHandles.begin(); queryHandleIter != queryHandles.end(); queryHandleIter++) {
+				client.freeQueryResources(*queryHandleIter);
+				delete *queryHandleIter;
+			}
+
+		}
         client.close();
     } catch (std::exception& e) {
         std::cerr << e.what() << std::endl;

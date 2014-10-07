@@ -185,4 +185,6 @@ Windows platforms should be more or less similar.
     In particular, for debug builds, check the path of the protobuf library.
 	
 5 Testing with querySubmitter
-querySubmitter query="select * from INFORMAITON_SCHEMA.SCHEMATA" type=sql connectStr=local=192.168.39.43:31010 api=sync logLevel=trace
+querySubmitter query="select * from INFORMATION_SCHEMA.SCHEMATA" type=sql connectStr=local=192.168.39.44:31010 api=async logLevel=trace
+
+querySubmitter query="select * from INFORMATION_SCHEMA.SCHEMATA; select * from INFORMATION_SCHEMA.COLUMNS" type=sql connectStr=local=192.168.39.44:31010 api=asyncCtx logLevel=trace
