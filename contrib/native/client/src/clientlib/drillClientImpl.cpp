@@ -128,11 +128,14 @@ connectionStatus_t DrillClientImpl::connect(const char* host, const char* port){
     try{
         tcp::resolver resolver(m_io_service);
         tcp::resolver::query query(tcp::v4(), host, port);
+        DRILL_LOG(LOG_TRACE) << "DrillClientImpl::connect: Resolve "
+            << "[host: " << host << ", port:" << port << "]\n";
         tcp::resolver::iterator iter = resolver.resolve(query);
         tcp::resolver::iterator end;
         while (iter != end){
             endpoint = *iter++;
-            DRILL_LOG(LOG_TRACE) << endpoint << std::endl;
+            DRILL_LOG(LOG_TRACE) << "DrillClientImpl::connect: connect to drillbit ["
+                << endpoint << "]\n";
         }
         boost::system::error_code ec;
         m_socket.connect(endpoint, ec);
@@ -1196,7 +1199,9 @@ void ZookeeperImpl::watcher(zhandle_t *zzh, int type, int state, const char *pat
 
 void ZookeeperImpl:: debugPrint(){
     if(m_zh!=NULL && m_state==ZOO_CONNECTED_STATE){
-        DRILL_LOG(LOG_TRACE) << m_drillServiceInstance.DebugString() << std::endl;
+        DRILL_LOG(LOG_TRACE)
+            << "Drill Service Instance: [ "
+            << m_drillServiceInstance.DebugString() << " ]\n";
     }
 }
 
