@@ -203,7 +203,7 @@ class DrillClientImpl{
             m_deadlineTimer.cancel();
             m_io_service.stop();
             boost::system::error_code ignorederr;
-            m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ignorederr);
+            m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignorederr);
             m_socket.close();
             if(m_rbuf!=NULL){
                 Utils::freeBuffer(m_rbuf, MAX_SOCK_RD_BUFSIZE); m_rbuf=NULL;
@@ -227,7 +227,7 @@ class DrillClientImpl{
         DrillClientError* getError(){ return m_pError;}
         DrillClientQueryResult* SubmitQuery(::exec::shared::QueryType t, const std::string& plan, pfnQueryResultsListener listener, void* listenerCtx);
         void waitForResults();
-        bool validateHandShake(const char* defaultSchema);
+        connectionStatus_t validateHandShake(const char* defaultSchema);
 
     private:
         friend class DrillClientQueryResult;
@@ -301,7 +301,7 @@ class DrillClientImpl{
         boost::asio::ip::tcp::socket m_socket;
         boost::asio::deadline_timer m_deadlineTimer; // to timeout async queries that never return
 
-        //for synchronous messages, like validate handshake
+		//for synchronous messages, like validate handshake
         ByteBuf_t m_rbuf; // buffer for receiving synchronous messages
         DataBuf m_wbuf; // buffer for sending synchronous message
 
@@ -324,7 +324,7 @@ inline void DrillClientImpl::Close() {
     //TODO: cancel pending query
     if(this->m_bIsConnected){
         boost::system::error_code ignorederr;
-        m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ignorederr);
+        m_socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignorederr);
         m_socket.close();
         m_bIsConnected=false;
     }
