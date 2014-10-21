@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include "utils.hpp"
 #include "drill/common.hpp"
+#include "logger.hpp"
 
 namespace Drill{
 
@@ -32,7 +33,7 @@ ByteBuf_t Utils::allocateBuffer(size_t len){
     boost::lock_guard<boost::mutex> memLock(AllocatedBuffer::s_memCVMutex);
     AllocatedBuffer::s_allocatedMem+=len;
     //http://stackoverflow.com/questions/2688466/why-mallocmemset-is-slower-than-calloc
-    ByteBuf_t b = (ByteBuf_t)calloc(len, sizeof(Byte_t)); 
+    ByteBuf_t b = (ByteBuf_t)calloc(len, sizeof(Byte_t));
     size_t safeSize= DrillClientConfig::getBufferLimit()-MEM_CHUNK_SIZE;
     if(b!=NULL && AllocatedBuffer::s_allocatedMem >= safeSize){
         AllocatedBuffer::s_isBufferLimitReached=true;
@@ -41,9 +42,11 @@ ByteBuf_t Utils::allocateBuffer(size_t len){
 }
 
 void Utils::freeBuffer(ByteBuf_t b, size_t len){ 
+    DRILL_LOG(LOG_TRACE) << "Free Buffer [ " 
+        << reinterpret_cast<int*>(b)<< ", size = " << len << " ]\n";
     boost::lock_guard<boost::mutex> memLock(AllocatedBuffer::s_memCVMutex);
     AllocatedBuffer::s_allocatedMem-=len;
-    free(b); 
+    free(b);
     size_t safeSize= DrillClientConfig::getBufferLimit()-MEM_CHUNK_SIZE;
     if(b!=NULL && AllocatedBuffer::s_allocatedMem < safeSize){
         AllocatedBuffer::s_isBufferLimitReached=false;
