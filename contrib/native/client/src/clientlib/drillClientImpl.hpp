@@ -20,15 +20,19 @@
 #ifndef DRILL_CLIENT_IMPL_H
 #define DRILL_CLIENT_IMPL_H
 
-/* Define some BOOST defines */
-#define BOOST_ASIO_ENABLE_CANCELIO
+// http://www.boost.org/doc/libs/1_54_0/doc/html/boost_asio/reference/basic_stream_socket/cancel/overload1.html
+// For portable cancellation, use
+//#define BOOST_ASIO_ENABLE_CANCELIO
+
 // If we want to support older versions of windows than Windows 7, we should
 // disable IOCP
 //#ifdef _WIN32
 //#define BOOST_ASIO_DISABLE_IOCP
 //#endif // _WIN32
 
+
 #include "drill/common.hpp"
+#include "drill/drillClient.hpp"
 #include <stdlib.h>
 #include <time.h>
 #include <queue>
@@ -42,9 +46,6 @@
 #include <zookeeper/zookeeper.h>
 #endif
 
-#include "drill/drillClient.hpp"
-#include "rpcEncoder.hpp"
-#include "rpcDecoder.hpp"
 #include "utils.hpp"
 #include "User.pb.h"
 #include "UserBitShared.pb.h"
