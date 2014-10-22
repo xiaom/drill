@@ -72,7 +72,7 @@ class SlicedByteBuf{
     public:
         //TODO: check the size and offset parameters. What is the largest they can be?
         SlicedByteBuf(const ByteBuf_t b, size_t offset, size_t length){
-            assert(length>0);
+            //assert(length>0);
             this->m_buffer=b;
             this->m_start=offset;
             this->m_end=offset+length-1;
@@ -81,7 +81,7 @@ class SlicedByteBuf{
 
         // Carve a sliced buffer out of another sliced buffer
         SlicedByteBuf(const SlicedByteBuf& sb, size_t offset, size_t length){
-            assert(length>0);
+            //assert(length>0);
             this->m_buffer=sb.m_buffer;
             this->m_start=sb.m_start+offset;
             this->m_end=sb.m_start+offset+length-1;
