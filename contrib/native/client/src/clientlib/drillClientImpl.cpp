@@ -520,7 +520,7 @@ status_t DrillClientImpl::processQueryResult(AllocatedBufferPtr  allocatedBuffer
                     // Ignore these state messages since they means the query is not completed.
                     // I have not observed those messages in testing though.
                     break;
-                    
+
                 // m_pendingRequests should be decremented when the query is
                 // canceled or completed
                 // in both cases, fall back to free mememory
@@ -584,10 +584,10 @@ status_t DrillClientImpl::processQueryResult(AllocatedBufferPtr  allocatedBuffer
         pDrillClientQueryResult->m_bIsLastChunk=qr->is_last_chunk();
         pfnQueryResultsListener pResultsListener=pDrillClientQueryResult->m_pResultsListener;
         if(pResultsListener!=NULL){
-            ret = pResultsListener(pDrillClientQueryResult->getListenerContext(), pRecordBatch, NULL);
+            ret = pResultsListener(pDrillClientQueryResult, pRecordBatch, NULL);
         }else{
             //Use a default callback that is called when a record batch is received
-            ret = pDrillClientQueryResult->defaultQueryResultsListener(pDrillClientQueryResult->getListenerContext(),
+            ret = pDrillClientQueryResult->defaultQueryResultsListener(pDrillClientQueryResult,
                     pRecordBatch, NULL);
         }
     } // release lock
@@ -1015,9 +1015,9 @@ void DrillClientQueryResult::signalError(DrillClientError* pErr){
         m_pError=pErr;
         pfnQueryResultsListener pResultsListener=this->m_pResultsListener;
         if(pResultsListener!=NULL){
-            pResultsListener(this->getListenerContext(), NULL, pErr);
+            pResultsListener(this, NULL, pErr);
         }else{
-            defaultQueryResultsListener(this->getListenerContext(), NULL, pErr);
+            defaultQueryResultsListener(this, NULL, pErr);
         }
         m_bIsQueryPending=false;
         {
