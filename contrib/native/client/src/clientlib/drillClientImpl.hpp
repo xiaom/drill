@@ -252,8 +252,9 @@ class DrillClientImpl{
         void handleHShakeReadTimeout(const boost::system::error_code & err);
         // Query results
         void getNextResult();
-        status_t readMsg(
-                ByteBuf_t _buf,
+        // Read the message from socket buffer into an allocated
+        // buffer (allocatedBuffer) and decode into msg.
+        status_t readMsg(ByteBuf_t _buf,
                 AllocatedBufferPtr* allocatedBuffer,
                 InBoundRpcMessage& msg,
                 boost::system::error_code& error);

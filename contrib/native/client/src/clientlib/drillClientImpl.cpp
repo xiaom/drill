@@ -343,6 +343,7 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(::exec::shared::QueryType t
         this->m_queryIds[coordId]=pQuery;
 
         DRILL_LOG(LOG_DEBUG)  << "Sent query request. Coordination id = " << coordId << std::endl;
+        DRILL_LOG(LOG_TRACE)  << "query = " << plan << std::endl;
 
         if(m_pendingRequests++==0){
             sendRequest=true;
@@ -407,7 +408,7 @@ void DrillClientImpl::getNextResult(){
                 boost::asio::placeholders::error,
                 boost::asio::placeholders::bytes_transferred)
             );
-    DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::getNextResult: async_read from the server\n";
+    DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::getNextResult: async_read from the server" << std::endl;
 }
 
 void DrillClientImpl::waitForResults(){
@@ -442,6 +443,7 @@ status_t DrillClientImpl::readMsg(ByteBuf_t _buf,
             currentBuffer=new AllocatedBuffer(rmsgLen);
             DRILL_LOG(LOG_TRACE) << "DrillClientImpl::readMsg: Allocated and locked buffer: [ "
                 << currentBuffer << ", size = " << rmsgLen << " ]\n";
+            // XXX: is this test valid? If the allocation fails, then is currentBuffer NULL?
             if(currentBuffer==NULL){
                 Utils::freeBuffer(_buf, LEN_PREFIX_BUFLEN);
                 DRILL_LOG(LOG_TRACE) << "DrillClientImpl::readMsg: ERR_QRY_OUTOFMEM.\n";

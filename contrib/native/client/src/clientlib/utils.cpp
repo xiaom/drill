@@ -38,12 +38,12 @@ ByteBuf_t Utils::allocateBuffer(size_t len){
     if(b!=NULL && AllocatedBuffer::s_allocatedMem >= safeSize){
         AllocatedBuffer::s_isBufferLimitReached=true;
     }
+    DRILL_LOG(LOG_TRACE) << "Utils::allocateBuffer [ "
+        << reinterpret_cast<int*>(b)<< ", size = " << len << " ]" << std::endl;
     return b;
 }
 
-void Utils::freeBuffer(ByteBuf_t b, size_t len){ 
-    DRILL_LOG(LOG_TRACE) << "Free Buffer [ " 
-        << reinterpret_cast<int*>(b)<< ", size = " << len << " ]\n";
+void Utils::freeBuffer(ByteBuf_t b, size_t len){
     boost::lock_guard<boost::mutex> memLock(AllocatedBuffer::s_memCVMutex);
     AllocatedBuffer::s_allocatedMem-=len;
     free(b);
@@ -53,6 +53,8 @@ void Utils::freeBuffer(ByteBuf_t b, size_t len){
         //signal any waiting threads
         AllocatedBuffer::s_memCV.notify_one();
     }
+    DRILL_LOG(LOG_TRACE) << "Utils::freeBuffer [ "
+        << reinterpret_cast<int*>(b)<< ", size = " << len << " ]" << std::endl;
 }
 
 
@@ -60,12 +62,16 @@ AllocatedBuffer::AllocatedBuffer(size_t l){
     m_pBuffer=NULL;
     m_pBuffer=Utils::allocateBuffer(l);
     m_bufSize=m_pBuffer!=NULL?l:0;
+    DRILL_LOG(LOG_TRACE) << "Allocate Buffer [ "
+        << reinterpret_cast<int*>(m_pBuffer)<< ", size = " << m_bufSize << " ]\n";
 }
 
 AllocatedBuffer::~AllocatedBuffer(){
-    Utils::freeBuffer(m_pBuffer, m_bufSize); 
-    m_pBuffer=NULL; 
+    DRILL_LOG(LOG_TRACE) << "Free Buffer [ "
+        << reinterpret_cast<int*>(m_pBuffer)<< ", size = " << m_bufSize << " ]\n";
+    Utils::freeBuffer(m_pBuffer, m_bufSize);
+    m_pBuffer=NULL;
     m_bufSize=0;
 }
 
-} // namespace 
+} // namespace
