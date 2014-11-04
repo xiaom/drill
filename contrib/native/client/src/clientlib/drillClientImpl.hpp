@@ -186,6 +186,7 @@ class DrillClientImpl{
             m_pError(NULL),
             m_pListenerThread(NULL),
             m_socket(m_io_service),
+            m_pWork(NULL),
             m_deadlineTimer(m_io_service),
             m_rbuf(NULL),
             m_wbuf(MAX_SOCK_RD_BUFSIZE)
@@ -199,6 +200,10 @@ class DrillClientImpl{
             //Free any record batches or buffers remaining
             //Cancel any pending requests
             //Clear and destroy DrillClientQueryResults vector?
+            if(this->m_pWork!=NULL){
+                delete this->m_pWork;
+                this->m_pWork = NULL;
+            }
 
             m_deadlineTimer.cancel();
             m_io_service.stop();
@@ -216,6 +221,7 @@ class DrillClientImpl{
                 this->m_pListenerThread->interrupt();
                 this->m_pListenerThread->join();
                 delete this->m_pListenerThread;
+                this->m_pListenerThread = NULL;
             }
         };
 
@@ -299,6 +305,8 @@ class DrillClientImpl{
         // for boost asio
         boost::thread * m_pListenerThread;
         boost::asio::io_service m_io_service;
+        // the work object prevent io_service running out of work
+        boost::asio::io_service::work * m_pWork;
         boost::asio::ip::tcp::socket m_socket;
         boost::asio::deadline_timer m_deadlineTimer; // to timeout async queries that never return
 
