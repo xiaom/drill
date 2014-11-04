@@ -314,6 +314,8 @@ connectionStatus_t DrillClientImpl::validateHandShake(const char* defaultSchema)
         return handleConnError(CONN_HANDSHAKE_FAILED,
                 getMessage(ERR_CONN_NOHSHAKE, DRILL_RPC_VERSION, m_handshakeVersion));
     }
+    // reset io_service after validated handshake and before running
+    m_io_service.reset();
     return CONN_SUCCESS;
 }
 
@@ -361,14 +363,14 @@ DrillClientQueryResult* DrillClientImpl::SubmitQuery(::exec::shared::QueryType t
     //run this in a new thread
     {
         if(this->m_pListenerThread==NULL){
-            // reset io_service before running
-            m_io_service.reset();
+            // Stopping the io_service from running out-of-work
+            this->m_pWork = new boost::asio::io_service::work(m_io_service);
             this->m_pListenerThread = new boost::thread(boost::bind(&boost::asio::io_service::run,
                 &this->m_io_service));
             DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::SubmitQuery: Starting listener thread: "
                 << this->m_pListenerThread << std::endl;
         }
-    }
+     }
     return pQuery;
 }
 
@@ -412,6 +414,8 @@ void DrillClientImpl::getNextResult(){
 }
 
 void DrillClientImpl::waitForResults(){
+    // do nothing. No we do not need to explicity wait for the listener thread to finish
+    delete this->m_pWork; this->m_pWork = NULL; // inform io_service that io_service is permited to exit
     this->m_pListenerThread->join();
     DRILL_LOG(LOG_DEBUG) << "DrillClientImpl::waitForResults: Listener thread "
         << this->m_pListenerThread << " exited." << std::endl;
