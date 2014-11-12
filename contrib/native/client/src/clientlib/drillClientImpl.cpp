@@ -723,6 +723,7 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf,
         m_deadlineTimer.cancel();
     }
     if(!error){
+        // If we did not get any network error
 
         InBoundRpcMessage msg;
 
@@ -740,14 +741,18 @@ void DrillClientImpl::handleRead(ByteBuf_t _buf,
         if(!error && msg.m_rpc_type==exec::user::QUERY_RESULT){
             status_t s = processQueryResult(allocatedBuffer, msg);
             if(s !=QRY_SUCCESS && s!= QRY_NO_MORE_DATA){
+                // s can be any terminated state (QRY_COMPLETED, QRY_CANCEL and other query error messages such as QRY_FAILS)
                 if(m_pendingRequests!=0){
                     boost::lock_guard<boost::mutex> lock(this->m_dcMutex);
+                    // start reading data from the next query
                     getNextResult();
                 }
                 return;
             }
         }else if(!error && msg.m_rpc_type==exec::user::QUERY_HANDLE){
+            // when we get the query handle
             if(processQueryId(allocatedBuffer, msg)!=QRY_SUCCESS){
+                // If there is any error, processQueryId will handle the error and then go to next query
                 if(m_pendingRequests!=0){
                     boost::lock_guard<boost::mutex> lock(this->m_dcMutex);
                     getNextResult();
